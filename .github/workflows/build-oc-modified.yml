@@ -54,11 +54,19 @@ jobs:
       - name: Parse Matrix Config
         id: set-matrix
         run: |
-            if [ -f ${{ inputs.versions-file }} ]; then
-              echo "ERROR: could not find matrix config file at ${{ inputs.versions-file }}"
+            FILE_NAME=$(echo "${{ inputs.versions-file }}" | tr -d '\r" ' | sed 's|^./||')
+          
+            echo "Parsing $FILE_NAME..."
+            
+            # Read JSON content directly with jq
+            MATRIX_JSON=$(jq -c . "$FILE_NAME")
+            
+            if [ -z "$MATRIX_JSON" ]; then
+              echo "ERROR: Failed to parse $FILE_NAME or file is empty!"
               exit 1
             fi
-            echo "matrix=$(jq -c . ${{ inputs.versions-file }})" >> $GITHUB_OUTPUT
+
+            echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
 
   build:
     name: Build Image
