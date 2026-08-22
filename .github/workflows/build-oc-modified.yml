@@ -7,7 +7,7 @@ on:
         description: 'Path to versions.json relative to repo root'
         required: false
         type: string
-        default: './versions.json'
+        default: ${{ GITHUB_WORKSPACE }}'/versions.json'
       image:
         description: 'Name of the image to build'
         required: true
@@ -26,7 +26,7 @@ on:
         description: 'Path to Dockerfile relative to context'
         required: false
         type: string
-        default: './Dockerfile'
+        default: 'Dockerfile'
       platforms:
         description: 'Platforms to build for'
         required: false
