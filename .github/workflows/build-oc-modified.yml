@@ -1,0 +1,127 @@
+name: Reusable Matrix Container Build for modified Upstream Images
+
+on:
+  workflow_call:
+    inputs:
+      versions-file:
+        description: 'Path to versions.json relative to repo root'
+        required: false
+        type: string
+        default: 'versions.json'
+      image:
+        description: 'Name of the image to build'
+        required: true
+        type: string
+      org:
+        description: 'Name of the org/individual to build'
+        required: false
+        type: string
+        default: ${{ github.actor }}
+      context:
+        description: 'Build context'
+        required: false
+        type: string
+        default: '.'
+      dockerfile:
+        description: 'Path to Dockerfile relative to context'
+        required: false
+        type: string
+        default: './Dockerfile'
+      platforms:
+        description: 'Platforms to build for'
+        required: false
+        type: string
+        default: 'linux/amd64,linux/arm64'
+      registry:
+        description: 'Container registry to push to'
+        required: false
+        type: string
+        default: 'ghcr.io'
+
+jobs:
+  matrix-setup:
+    name: Generate Version Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Parse Matrix Config
+        id: set-matrix
+        run: |
+            if [ -f ${{ inputs.versions-file }} ]; then
+              echo "ERROR: could not find matrix config file at ${{ inputs.versions-file }}"
+              exit 1
+            fi
+            echo "matrix=$(jq -c . ${{ inputs.versions-file }})" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build Image
+    runs-on: ubuntu-latest
+    needs: matrix-setup
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJson(needs.matrix-setup.outputs.matrix) }}
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+      - uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine Image Tag
+        id: tags
+        run: |
+          MAJOR="${{ matrix.version.major }}"
+          UPSTREAM="${{ matrix.version.upstream }}"
+          IS_LATEST="${{ matrix.version.latest }}"
+          IS_LTS="${{ matrix.version.lts }}"
+          REPO="${{ inputs.registry }}/${{ inputs.org }}/${{ inputs.image }}"
+
+          if [ -z "$MAJOR" ]; then
+            echo "ERROR: matrix.version.major is not set"
+            exit 1
+          fi
+
+          TAG_LIST="${REPO}:${MAJOR},${REPO}:${UPSTREAM}"
+
+          if [ "$IS_LATEST" = "true" ]; then
+            TAG_LIST="${TAG_LIST},${REPO}:latest"
+          fi
+
+          if [ "$IS_LTS" = "true" ]; then
+            TAG_LIST="${TAG_LIST},${REPO}:lts"
+          fi
+
+          echo "tags=$TAG_LIST" >> $GITHUB_OUTPUT
+
+      - name: Build & Push Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ inputs.dockerfile }}
+          build-args: |
+              VERSION=${{ matrix.version.upstream }}
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
