@@ -54,12 +54,11 @@ jobs:
       - name: Parse Matrix Config
         id: set-matrix
         run: |
-            TARGET_FILE="${GITHUB_WORKSPACE}/${{ inputs.versions-file }}"
-            if [ -f "$TARGET_FILE" ]; then
-              echo "ERROR: could not find matrix config file at $TARGET_FILE"
+            if [ -f ${{ inputs.versions-file }} ]; then
+              echo "ERROR: could not find matrix config file at ${{ inputs.versions-file }}"
               exit 1
             fi
-            echo "matrix=$(jq -c . "$TARGET_FILE")" >> $GITHUB_OUTPUT
+            echo "matrix=$(jq -c . ${{ inputs.versions-file }})" >> $GITHUB_OUTPUT
 
   build:
     name: Build Image
