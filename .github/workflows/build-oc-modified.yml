@@ -54,6 +54,7 @@ jobs:
       - name: Parse Matrix Config
         id: set-matrix
         run: |
+            ls -la "${GITHUB_WORKSPACE}"
             if [ -f ${{ inputs.versions-file }} ]; then
               echo "ERROR: could not find matrix config file at ${{ inputs.versions-file }}"
               exit 1
