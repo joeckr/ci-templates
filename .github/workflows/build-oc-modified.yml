@@ -7,7 +7,7 @@ on:
         description: 'Path to versions.json relative to repo root'
         required: false
         type: string
-        default: ${{ GITHUB_WORKSPACE }}'/versions.json'
+        default: 'versions.json'
       image:
         description: 'Name of the image to build'
         required: true
@@ -54,12 +54,12 @@ jobs:
       - name: Parse Matrix Config
         id: set-matrix
         run: |
-            ls -la "${GITHUB_WORKSPACE}"
-            if [ -f ${{ inputs.versions-file }} ]; then
-              echo "ERROR: could not find matrix config file at ${{ inputs.versions-file }}"
+            TARGET_FILE="${GITHUB_WORKSPACE}/${{ inputs.versions-file }}"
+            if [ -f TARGET_FILE ]; then
+              echo "ERROR: could not find matrix config file at TARGET_FILE"
               exit 1
             fi
-            echo "matrix=$(jq -c . ${{ inputs.versions-file }})" >> $GITHUB_OUTPUT
+            echo "matrix=$(jq -c . TARGET_FILE)" >> $GITHUB_OUTPUT
 
   build:
     name: Build Image
