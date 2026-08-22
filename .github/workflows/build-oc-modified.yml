@@ -7,7 +7,7 @@ on:
         description: 'Path to versions.json relative to repo root'
         required: false
         type: string
-        default: 'versions.json'
+        default: './versions.json'
       image:
         description: 'Name of the image to build'
         required: true
@@ -47,6 +47,9 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
 
       - name: Parse Matrix Config
         id: set-matrix
