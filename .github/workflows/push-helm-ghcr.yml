@@ -1,0 +1,256 @@
+name: Reusable Helm Chart Packaging and Push to GHCR
+
+on:
+  workflow_call:
+    inputs:
+      chart-path:
+        description: 'Path to a single chart directory (e.g. charts/my-chart). If provided, charts-dir is ignored'
+        required: false
+        type: string
+        default: ''
+      charts-dir:
+        description: 'Directory containing helm charts relative to repository root'
+        required: false
+        type: string
+        default: 'chart'
+      registry:
+        description: 'Container registry to push to'
+        required: false
+        type: string
+        default: 'ghcr.io'
+      org:
+        description: 'Organization or user owning the registry namespace'
+        required: false
+        type: string
+        default: ${{ github.repository_owner }}
+      subpath:
+        description: 'Optional subpath under registry namespace (e.g. charts)'
+        required: false
+        type: string
+        default: ''
+      helm-version:
+        description: 'Helm version to install (e.g. latest, v3.15.0)'
+        required: false
+        type: string
+        default: 'latest'
+      version:
+        description: 'Optional version override for chart packaging'
+        required: false
+        type: string
+        default: ''
+      app-version:
+        description: 'Optional appVersion override for chart packaging'
+        required: false
+        type: string
+        default: ''
+      dependency-update:
+        description: 'Run helm dependency build prior to packaging'
+        required: false
+        type: boolean
+        default: true
+      lint:
+        description: 'Run helm lint prior to packaging'
+        required: false
+        type: boolean
+        default: true
+      dry-run:
+        description: 'Package and lint charts but do not push to registry'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      github-token:
+        description: 'Token for authenticating with the registry (defaults to GITHUB_TOKEN)'
+        required: false
+    outputs:
+      packages:
+        description: 'JSON array of packaged chart files'
+        value: ${{ jobs.publish.outputs.packages }}
+
+jobs:
+  publish:
+    name: Package & Publish Helm Charts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      packages: ${{ steps.package.outputs.packages }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ inputs.helm-version }}
+
+      - name: Log in to Registry
+        if: ${{ !inputs.dry-run && github.event_name != 'pull_request' }}
+        run: |
+          TOKEN="${{ secrets.github-token }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          echo "$TOKEN" | helm registry login "${{ inputs.registry }}" --username "${{ github.actor }}" --password-stdin
+
+      - name: Discover and Validate Charts
+        id: discover
+        run: |
+          CHARTS=()
+          CHART_PATH="${{ inputs.chart-path }}"
+          CHARTS_DIR="${{ inputs.charts-dir }}"
+
+          if [ -n "$CHART_PATH" ]; then
+            CLEAN_PATH=$(echo "$CHART_PATH" | tr -d '\r" ' | sed 's|^./||')
+            if [ ! -f "$CLEAN_PATH/Chart.yaml" ]; then
+              echo "ERROR: Chart.yaml not found at specified chart-path '$CLEAN_PATH'!"
+              exit 1
+            fi
+            CHARTS+=("$CLEAN_PATH")
+          else
+            CLEAN_DIR=$(echo "$CHARTS_DIR" | tr -d '\r" ' | sed 's|^./||')
+            if [ ! -d "$CLEAN_DIR" ]; then
+              echo "ERROR: Specified charts-dir '$CLEAN_DIR' does not exist!"
+              exit 1
+            fi
+            while IFS= read -r chart_file; do
+              [ -n "$chart_file" ] && CHARTS+=("$(dirname "$chart_file")")
+            done < <(find "$CLEAN_DIR" -name "Chart.yaml" -type f | sort)
+          fi
+
+          if [ ${#CHARTS[@]} -eq 0 ]; then
+            echo "ERROR: No Helm charts found!"
+            exit 1
+          fi
+
+          echo "Discovered charts:"
+          for c in "${CHARTS[@]}"; do
+            echo " - $c"
+          done
+
+          # Save charts list for subsequent steps
+          printf "%s\n" "${CHARTS[@]}" > .discovered_charts.txt
+
+          # Dependency update
+          if [ "${{ inputs.dependency-update }}" = "true" ]; then
+            echo "::group::Building Chart Dependencies"
+            for c in "${CHARTS[@]}"; do
+              if [ -f "$c/Chart.lock" ] || grep -q '^dependencies:' "$c/Chart.yaml"; then
+                echo "Updating dependencies for $c..."
+                helm dependency build "$c"
+              else
+                echo "No dependencies declared for $c, skipping."
+              fi
+            done
+            echo "::endgroup::"
+          fi
+
+          # Lint
+          if [ "${{ inputs.lint }}" = "true" ]; then
+            echo "::group::Linting Charts"
+            for c in "${CHARTS[@]}"; do
+              echo "Linting $c..."
+              helm lint "$c"
+            done
+            echo "::endgroup::"
+          fi
+
+      - name: Package Charts
+        id: package
+        run: |
+          mkdir -p .helm-packages
+
+          PACKAGE_FLAGS=()
+          if [ -n "${{ inputs.version }}" ]; then
+            PACKAGE_FLAGS+=(--version "${{ inputs.version }}")
+          fi
+          if [ -n "${{ inputs.app-version }}" ]; then
+            PACKAGE_FLAGS+=(--app-version "${{ inputs.app-version }}")
+          fi
+
+          echo "::group::Packaging Charts"
+          while IFS= read -r chart; do
+            [ -z "$chart" ] && continue
+            echo "Packaging $chart..."
+            helm package "$chart" --destination .helm-packages "${PACKAGE_FLAGS[@]}"
+          done < .discovered_charts.txt
+          echo "::endgroup::"
+
+          PACKAGES_JSON=$(find .helm-packages -name "*.tgz" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
+          echo "packages=$PACKAGES_JSON" >> $GITHUB_OUTPUT
+          echo "Generated packages: $PACKAGES_JSON"
+
+      - name: Push Charts to Registry
+        id: push
+        run: |
+          # GHCR requires registry namespace/owner to be lowercase
+          OWNER=$(echo "${{ inputs.org }}" | tr '[:upper:]' '[:lower:]')
+          REGISTRY="${{ inputs.registry }}"
+          SUBPATH=$(echo "${{ inputs.subpath }}" | sed 's|^/*||;s|/*$||')
+
+          if [ -n "$SUBPATH" ]; then
+            OCI_DEST="oci://${REGISTRY}/${OWNER}/${SUBPATH}"
+          else
+            OCI_DEST="oci://${REGISTRY}/${OWNER}"
+          fi
+
+          SHOULD_PUSH="true"
+          if [ "${{ inputs.dry-run }}" = "true" ]; then
+            echo "Dry run enabled. Skipping push to registry."
+            SHOULD_PUSH="false"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Pull request trigger detected. Skipping push to registry."
+            SHOULD_PUSH="false"
+          fi
+
+          echo "Target OCI repository destination: $OCI_DEST"
+          echo "::group::Pushing Packages"
+          for pkg in .helm-packages/*.tgz; do
+            [ -e "$pkg" ] || continue
+            PKG_NAME=$(basename "$pkg")
+            if [ "$SHOULD_PUSH" = "true" ]; then
+              echo "Pushing $PKG_NAME to $OCI_DEST..."
+              helm push "$pkg" "$OCI_DEST"
+            else
+              echo "[DRY-RUN] Would push $PKG_NAME to $OCI_DEST"
+            fi
+          done
+          echo "::endgroup::"
+
+      - name: Generate Summary
+        if: always()
+        run: |
+          OWNER=$(echo "${{ inputs.org }}" | tr '[:upper:]' '[:lower:]')
+          REGISTRY="${{ inputs.registry }}"
+          SUBPATH=$(echo "${{ inputs.subpath }}" | sed 's|^/*||;s|/*$||')
+
+          if [ -n "$SUBPATH" ]; then
+            OCI_DEST="oci://${REGISTRY}/${OWNER}/${SUBPATH}"
+          else
+            OCI_DEST="oci://${REGISTRY}/${OWNER}"
+          fi
+
+          STATUS="Pushed"
+          if [ "${{ inputs.dry-run }}" = "true" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
+            STATUS="Dry Run (Not Pushed)"
+          fi
+
+          {
+            echo "## 📦 Helm Charts Build Summary"
+            echo ""
+            echo "| Package | Status | Destination |"
+            echo "| --- | --- | --- |"
+            for pkg in .helm-packages/*.tgz; do
+              if [ -e "$pkg" ]; then
+                echo "| \`$(basename "$pkg")\` | $STATUS | \`${OCI_DEST}\` |"
+              fi
+            done
+            echo ""
+            echo "- **Registry**: \`${REGISTRY}\`"
+            echo "- **Owner/Org**: \`${OWNER}\`"
+            echo "- **Dry Run**: \`${{ inputs.dry-run }}\`"
+          } >> $GITHUB_STEP_SUMMARY
