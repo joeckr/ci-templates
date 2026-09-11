@@ -1,0 +1,41 @@
+name: Hadolint
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile:
+        description: 'Path to the Dockerfile to lint'
+        required: false
+        type: string
+        default: 'Dockerfile'
+      recursive:
+        description: 'Lint all Dockerfiles in the repository recursively'
+        required: false
+        type: boolean
+        default: false
+      failure-threshold:
+        description: 'Fail the pipeline when issues of this severity or higher are found (error, warning, info, style)'
+        required: false
+        type: string
+        default: 'info'
+      config:
+        description: 'Path to a custom hadolint config file'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  hadolint:
+    name: Run Hadolint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ inputs.dockerfile }}
+          recursive: ${{ inputs.recursive }}
+          failure-threshold: ${{ inputs.failure-threshold }}
+          config: ${{ inputs.config }}

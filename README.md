@@ -291,3 +291,43 @@ jobs:
   gitleaks:
     uses: <org-name>/<repo-name>/.github/workflows/gitleaks.yml@main
 ```
+
+---
+
+### `hadolint.yml`
+Reusable workflow to run Hadolint for linting Dockerfiles.
+
+#### Features
+- **Dockerfile Linting**: Uses `hadolint/hadolint-action` to lint Dockerfiles and enforce best practices.
+- **Configurable**: Supports custom configuration files and severity thresholds.
+- **Recursive Scanning**: Optionally scan all Dockerfiles in a repository recursively.
+
+#### Example Usage
+
+```yaml
+name: Run Hadolint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  hadolint:
+    uses: joeckr/ci-templates/.github/workflows/hadolint.yml@main
+    with:
+      dockerfile: 'Dockerfile'
+      # Optional configurations:
+      # recursive: false
+      # failure-threshold: 'info'
+      # config: '.hadolint.yaml'
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `dockerfile` | Path to the Dockerfile to lint | No | `'Dockerfile'` |
+| `recursive` | Lint all Dockerfiles in the repository recursively | No | `false` |
+| `failure-threshold` | Fail the pipeline when issues of this severity or higher are found (error, warning, info, style) | No | `'info'` |
+| `config` | Path to a custom hadolint config file | No | `''` |
