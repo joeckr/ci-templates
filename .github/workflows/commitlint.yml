@@ -1,0 +1,17 @@
+name: Commitlint
+
+on:
+  workflow_call:
+
+jobs:
+  commitlint:
+    name: Lint Commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Commitlint
+        uses: wagoid/commitlint-github-action@v6
