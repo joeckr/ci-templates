@@ -1,0 +1,323 @@
+name: Reusable Semantic Versioning and Release Automation
+
+on:
+  workflow_call:
+    inputs:
+      chart-path:
+        description: 'Path to a Helm chart directory (e.g. chart or chart/my-app). If provided, Chart.yaml will be updated'
+        required: false
+        type: string
+        default: 'chart'
+      update-chart-version:
+        description: 'Update the version field in Chart.yaml'
+        required: false
+        type: boolean
+        default: true
+      update-chart-app-version:
+        description: 'Update the appVersion field in Chart.yaml'
+        required: false
+        type: boolean
+        default: true
+      tag-prefix:
+        description: 'Prefix for Git tags (e.g. v for v1.2.3)'
+        required: false
+        type: string
+        default: 'v'
+      initial-version:
+        description: 'Initial fallback version if no tags exist'
+        required: false
+        type: string
+        default: '0.1.0'
+      create-release:
+        description: 'Create a GitHub Release with auto-generated release notes'
+        required: false
+        type: boolean
+        default: true
+      create-tag:
+        description: 'Create and push Git tag'
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        description: 'Mark release as prerelease'
+        required: false
+        type: boolean
+        default: false
+      draft:
+        description: 'Create release as draft'
+        required: false
+        type: boolean
+        default: false
+      dry-run:
+        description: 'Calculate version and show planned changes without pushing commits, tags, or releases'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      github-token:
+        description: 'Token for authenticating Git and GitHub API (defaults to GITHUB_TOKEN)'
+        required: false
+    outputs:
+      version:
+        description: 'Calculated semantic version without prefix (e.g. 1.2.0)'
+        value: ${{ jobs.release.outputs.version }}
+      tag:
+        description: 'Calculated version tag with prefix (e.g. v1.2.0)'
+        value: ${{ jobs.release.outputs.tag }}
+      previous-version:
+        description: 'Previous semantic version'
+        value: ${{ jobs.release.outputs.previous-version }}
+      previous-tag:
+        description: 'Previous version tag'
+        value: ${{ jobs.release.outputs.previous-tag }}
+      bump:
+        description: 'Bump type: major, minor, patch, or none'
+        value: ${{ jobs.release.outputs.bump }}
+      released:
+        description: 'Boolean indicating whether a new release was published'
+        value: ${{ jobs.release.outputs.released }}
+
+jobs:
+  release:
+    name: Semantic Version & Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.export.outputs.version }}
+      tag: ${{ steps.export.outputs.tag }}
+      previous-version: ${{ steps.export.outputs.previous-version }}
+      previous-tag: ${{ steps.export.outputs.previous-tag }}
+      bump: ${{ steps.export.outputs.bump }}
+      released: ${{ steps.export.outputs.released }}
+    steps:
+      - name: Resolve Authentication Token
+        id: auth
+        run: |
+          TOKEN="${{ secrets.github-token }}"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
+          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          token: ${{ steps.auth.outputs.token }}
+
+      - name: Validate Helm Chart Path (Optional)
+        id: chart-check
+        run: |
+          CHART_PATH="${{ inputs.chart-path }}"
+          CLEAN_PATH=$(echo "$CHART_PATH" | tr -d '\r" ' | sed 's|^./||')
+          if [ -n "$CLEAN_PATH" ] && [ -f "$CLEAN_PATH/Chart.yaml" ]; then
+            echo "chart_path=$CLEAN_PATH" >> $GITHUB_OUTPUT
+            echo "Chart found at: $CLEAN_PATH/Chart.yaml"
+          elif [ -n "$CLEAN_PATH" ] && [ "$CLEAN_PATH" != "chart" ]; then
+            echo "ERROR: Chart.yaml not found at specified chart-path '$CLEAN_PATH'!"
+            exit 1
+          else
+            echo "chart_path=" >> $GITHUB_OUTPUT
+            echo "No Helm chart found at '$CLEAN_PATH', skipping Helm chart updates."
+          fi
+
+      - name: Calculate Semantic Version
+        id: semver
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          tag_prefix: ${{ inputs.tag-prefix }}
+          major_pattern: '((BREAKING CHANGE|BREAKING)|^[a-zA-Z]+(\([^\)]+\))?!:)'
+          minor_pattern: '^feat(\([^\)]+\))?:'
+          version_format: "${major}.${minor}.${patch}"
+          bump_each_commit: false
+          search_commit_body: true
+
+      - name: Process Version and Determine Bump
+        id: process
+        run: |
+          VERSION="${{ steps.semver.outputs.version }}"
+          TAG="${{ steps.semver.outputs.version_tag }}"
+          PREV_VERSION="${{ steps.semver.outputs.previous_version }}"
+          PREV_TAG="${{ steps.semver.outputs.previous_version_tag }}"
+          CHANGED="${{ steps.semver.outputs.changed }}"
+
+          # Handle initial release if previous tag is empty
+          if [ -z "$PREV_VERSION" ]; then
+            PREV_VERSION="none"
+            PREV_TAG="none"
+          fi
+
+          if [ "$CHANGED" != "true" ]; then
+            BUMP="none"
+            SHOULD_RELEASE="false"
+          else
+            # Inspect commits since previous tag to ensure release-worthy commit exists
+            if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "none" ]; then
+              COMMIT_LOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"%s")
+            else
+              COMMIT_LOG=$(git log --pretty=format:"%s")
+            fi
+
+            HAS_MAJOR=$(echo "$COMMIT_LOG" | grep -E -c '(BREAKING CHANGE|BREAKING|^[a-zA-Z]+(\([^\)]+\))?!:)' || true)
+            HAS_MINOR=$(echo "$COMMIT_LOG" | grep -E -c '^feat(\([^\)]+\))?:' || true)
+            HAS_PATCH=$(echo "$COMMIT_LOG" | grep -E -c '^(fix|perf)(\([^\)]+\))?:' || true)
+
+            if [ "$HAS_MAJOR" -gt 0 ]; then
+              BUMP="major"
+              SHOULD_RELEASE="true"
+            elif [ "$HAS_MINOR" -gt 0 ]; then
+              BUMP="minor"
+              SHOULD_RELEASE="true"
+            elif [ "$HAS_PATCH" -gt 0 ]; then
+              BUMP="patch"
+              SHOULD_RELEASE="true"
+            else
+              echo "Only non-release commits found (chore, ci, test, docs, etc.). Skipping version bump and release."
+              BUMP="none"
+              SHOULD_RELEASE="false"
+              VERSION="$PREV_VERSION"
+              TAG="$PREV_TAG"
+            fi
+          fi
+
+          if [ "${{ inputs.dry-run }}" = "true" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
+            SHOULD_RELEASE="false"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "previous_version=$PREV_VERSION" >> $GITHUB_OUTPUT
+          echo "previous_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+          echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+
+          echo "Version Summary:"
+          echo " - Current / Previous Version: $PREV_VERSION ($PREV_TAG)"
+          echo " - Calculated Next Version:    $VERSION ($TAG)"
+          echo " - Bump Type:                  $BUMP"
+          echo " - Has Changes:                $CHANGED"
+          echo " - Release Action:             $SHOULD_RELEASE"
+
+      - name: Update Helm Chart Metadata
+        id: update-chart
+        if: ${{ steps.chart-check.outputs.chart_path != '' && steps.process.outputs.changed == 'true' }}
+        run: |
+          CHART_PATH="${{ steps.chart-check.outputs.chart_path }}"
+          TARGET_FILE="$CHART_PATH/Chart.yaml"
+          VERSION="${{ steps.process.outputs.version }}"
+
+          echo "Updating metadata in $TARGET_FILE..."
+
+          if [ "${{ inputs.update-chart-version }}" = "true" ]; then
+            echo "Setting version to: $VERSION"
+            yq -i ".version = \"$VERSION\"" "$TARGET_FILE"
+          fi
+
+          if [ "${{ inputs.update-chart-app-version }}" = "true" ]; then
+            echo "Setting appVersion to: $VERSION"
+            yq -i ".appVersion = \"$VERSION\"" "$TARGET_FILE"
+          fi
+
+          echo "::group::Chart.yaml Diff"
+          git diff "$TARGET_FILE"
+          echo "::endgroup::"
+
+          echo "chart_updated=true" >> $GITHUB_OUTPUT
+
+      - name: Commit Chart Updates to Git
+        if: ${{ steps.update-chart.outputs.chart_updated == 'true' && steps.process.outputs.should_release == 'true' }}
+        run: |
+          CHART_PATH="${{ steps.chart-check.outputs.chart_path }}"
+          TARGET_FILE="$CHART_PATH/Chart.yaml"
+          TAG="${{ steps.process.outputs.tag }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add "$TARGET_FILE"
+          if ! git diff --staged --quiet; then
+            echo "Committing updated Chart.yaml..."
+            git commit -m "chore(release): bump chart metadata to ${TAG} [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          else
+            echo "No changes staged for commit."
+          fi
+
+      - name: Create Git Tag
+        if: ${{ inputs.create-tag && steps.process.outputs.should_release == 'true' }}
+        run: |
+          TAG="${{ steps.process.outputs.tag }}"
+          echo "Creating and pushing git tag: $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        id: release
+        if: ${{ inputs.create-release && steps.process.outputs.should_release == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          TAG="${{ steps.process.outputs.tag }}"
+          echo "Creating GitHub release for tag: $TAG..."
+
+          RELEASE_ARGS=("$TAG" --title "$TAG" --generate-notes)
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            RELEASE_ARGS+=(--prerelease)
+          fi
+          if [ "${{ inputs.draft }}" = "true" ]; then
+            RELEASE_ARGS+=(--draft)
+          fi
+
+          gh release create "${RELEASE_ARGS[@]}"
+
+      - name: Export Workflow Outputs
+        id: export
+        run: |
+          echo "version=${{ steps.process.outputs.version }}" >> $GITHUB_OUTPUT
+          echo "tag=${{ steps.process.outputs.tag }}" >> $GITHUB_OUTPUT
+          echo "previous-version=${{ steps.process.outputs.previous_version }}" >> $GITHUB_OUTPUT
+          echo "previous-tag=${{ steps.process.outputs.previous_tag }}" >> $GITHUB_OUTPUT
+          echo "bump=${{ steps.process.outputs.bump }}" >> $GITHUB_OUTPUT
+          echo "released=${{ steps.process.outputs.should_release }}" >> $GITHUB_OUTPUT
+
+      - name: Generate Summary
+        if: always()
+        run: |
+          VERSION="${{ steps.process.outputs.version }}"
+          TAG="${{ steps.process.outputs.tag }}"
+          PREV_TAG="${{ steps.process.outputs.previous_tag }}"
+          BUMP="${{ steps.process.outputs.bump }}"
+          RELEASED="${{ steps.process.outputs.should_release }}"
+          CHART_PATH="${{ steps.chart-check.outputs.chart_path }}"
+
+          STATUS="No Release Required"
+          if [ "$RELEASED" = "true" ]; then
+            STATUS="Released"
+          elif [ "${{ inputs.dry-run }}" = "true" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
+            STATUS="Dry Run (Preview Only)"
+          fi
+
+          {
+            echo "## 🏷️ Semantic Versioning Summary"
+            echo ""
+            echo "| Parameter | Value |"
+            echo "| --- | --- |"
+            echo "| **Next Version** | \`${VERSION:-none}\` |"
+            echo "| **Tag** | \`${TAG:-none}\` |"
+            echo "| **Previous Tag** | \`${PREV_TAG:-none}\` |"
+            echo "| **Bump Type** | \`${BUMP:-none}\` |"
+            echo "| **Status** | **${STATUS}** |"
+            if [ -n "$CHART_PATH" ]; then
+              echo "| **Chart Target** | \`${CHART_PATH}/Chart.yaml\` |"
+            fi
+            echo ""
+            if [ "$RELEASED" = "true" ]; then
+              echo "🚀 Successfully created tag and release [\`${TAG}\`](${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG})!"
+            fi
+          } >> $GITHUB_STEP_SUMMARY

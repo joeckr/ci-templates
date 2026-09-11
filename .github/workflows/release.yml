@@ -1,0 +1,13 @@
+name: Release ci-templates
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  semver:
+    name: Semantic Release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/semantic.yml

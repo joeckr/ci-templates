@@ -1,0 +1,10 @@
+[tools]
+prek = "latest"
+
+[tasks."hooks:install"]
+description = "Install Git hooks using prek"
+run = "prek install --hook-type pre-commit --hook-type commit-msg"
+
+[tasks."hooks:run"]
+description = "Run prek hooks across all files"
+run = "prek run --all-files"
