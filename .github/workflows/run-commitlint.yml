@@ -1,0 +1,11 @@
+name: Run Commitlint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  commitlint:
+    uses: ./.github/workflows/commitlint.yml
