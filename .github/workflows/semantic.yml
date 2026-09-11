@@ -124,43 +124,30 @@ jobs:
             echo "No Helm chart found at '$CLEAN_PATH', skipping Helm chart updates."
           fi
 
-      - name: Calculate Semantic Version
-        id: semver
-        uses: paulhatch/semantic-version@v5.4.0
-        with:
-          tag_prefix: ${{ inputs.tag-prefix }}
-          major_pattern: '((BREAKING CHANGE|BREAKING)|^[a-zA-Z]+(\([^\)]+\))?!:)'
-          minor_pattern: '^feat(\([^\)]+\))?:'
-          version_format: "${major}.${minor}.${patch}"
-          bump_each_commit: false
-          search_commit_body: true
-
-      - name: Process Version and Determine Bump
+      - name: Calculate Semantic Version and Determine Bump
         id: process
         run: |
-          VERSION="${{ steps.semver.outputs.version }}"
-          TAG="${{ steps.semver.outputs.version_tag }}"
-          PREV_VERSION="${{ steps.semver.outputs.previous_version }}"
-          PREV_TAG="${{ steps.semver.outputs.previous_version_tag }}"
-          CHANGED="${{ steps.semver.outputs.changed }}"
+          TAG_PREFIX="${{ inputs.tag-prefix }}"
 
-          # Handle initial release if previous tag is empty
-          if [ -z "$PREV_VERSION" ]; then
-            PREV_VERSION="none"
+          # Discover previous tag and version directly from Git tags
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            PREV_VERSION=$(echo "$PREV_TAG" | sed "s|^${TAG_PREFIX}||")
+            COMMIT_LOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"%s")
+          else
             PREV_TAG="none"
+            PREV_VERSION="none"
+            COMMIT_LOG=$(git log --pretty=format:"%s")
           fi
 
-          if [ "$CHANGED" != "true" ]; then
+          if [ -z "$COMMIT_LOG" ]; then
+            CHANGED="false"
             BUMP="none"
             SHOULD_RELEASE="false"
+            VERSION="$PREV_VERSION"
+            TAG="$PREV_TAG"
           else
-            # Inspect commits since previous tag to ensure release-worthy commit exists
-            if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "none" ]; then
-              COMMIT_LOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"%s")
-            else
-              COMMIT_LOG=$(git log --pretty=format:"%s")
-            fi
-
+            CHANGED="true"
             HAS_MAJOR=$(echo "$COMMIT_LOG" | grep -E -c '(BREAKING CHANGE|BREAKING|^[a-zA-Z]+(\([^\)]+\))?!:)' || true)
             HAS_MINOR=$(echo "$COMMIT_LOG" | grep -E -c '^feat(\([^\)]+\))?:' || true)
             HAS_PATCH=$(echo "$COMMIT_LOG" | grep -E -c '^(fix|perf)(\([^\)]+\))?:' || true)
@@ -180,6 +167,35 @@ jobs:
               SHOULD_RELEASE="false"
               VERSION="$PREV_VERSION"
               TAG="$PREV_TAG"
+            fi
+
+            if [ "$SHOULD_RELEASE" = "true" ]; then
+              if [ "$PREV_VERSION" = "none" ] || [ -z "$PREV_VERSION" ]; then
+                VERSION="${{ inputs.initial-version }}"
+                TAG="${TAG_PREFIX}${VERSION}"
+              else
+                IFS='.' read -r P_MAJOR P_MINOR P_PATCH <<< "$PREV_VERSION"
+                P_MAJOR=${P_MAJOR:-0}
+                P_MINOR=${P_MINOR:-0}
+                P_PATCH=${P_PATCH:-0}
+
+                if [ "$BUMP" = "major" ]; then
+                  NEW_MAJOR=$((P_MAJOR + 1))
+                  NEW_MINOR=0
+                  NEW_PATCH=0
+                elif [ "$BUMP" = "minor" ]; then
+                  NEW_MAJOR=$P_MAJOR
+                  NEW_MINOR=$((P_MINOR + 1))
+                  NEW_PATCH=0
+                elif [ "$BUMP" = "patch" ]; then
+                  NEW_MAJOR=$P_MAJOR
+                  NEW_MINOR=$P_MINOR
+                  NEW_PATCH=$((P_PATCH + 1))
+                fi
+
+                VERSION="${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}"
+                TAG="${TAG_PREFIX}${VERSION}"
+              fi
             fi
           fi
 
