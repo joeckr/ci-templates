@@ -27,7 +27,7 @@ on:
         description: 'Optional subpath under registry namespace (e.g. charts)'
         required: false
         type: string
-        default: ''
+        default: 'charts'
       helm-version:
         description: 'Helm version to install (e.g. latest, v3.15.0)'
         required: false
