@@ -268,3 +268,26 @@ Commits must follow the Conventional Commits specification:
 - `fix: resolve issue` -> triggers **patch** release
 - `feat!: breaking redesign` or footer `BREAKING CHANGE:` -> triggers **major** release
 - `chore:`, `docs:`, `ci:`, `test:`, `refactor:` -> maintenance changes
+
+### `gitleaks.yml`
+Reusable workflow to run Gitleaks for secret detection.
+
+#### Features
+- **Config Detection**: Automatically checks for the presence of a `gitleaks.toml` file in the root of the repository. If found, it uses the provided configuration; otherwise, it runs a full scan with default settings.
+- **Secret Scanning**: Downloads the latest Gitleaks binary to explicitly execute full repository scans to detect hardcoded secrets, passwords, and API keys.
+
+#### Example Usage
+
+```yaml
+name: Gitleaks Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  gitleaks:
+    uses: <org-name>/<repo-name>/.github/workflows/gitleaks.yml@main
+```

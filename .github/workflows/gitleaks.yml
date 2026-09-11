@@ -1,0 +1,37 @@
+name: Gitleaks Scan
+
+on:
+  workflow_call:
+
+jobs:
+  gitleaks:
+    name: Run Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Gitleaks
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          VERSION=${VERSION#v}
+          wget -qO- "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" | sudo tar -xz -C /usr/local/bin gitleaks
+
+      - name: Check for gitleaks.toml
+        id: config
+        run: |
+          if [ -f "gitleaks.toml" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Gitleaks with config
+        if: steps.config.outputs.exists == 'true'
+        run: gitleaks detect --source . --config gitleaks.toml --verbose
+
+      - name: Run Gitleaks without config (Full scan)
+        if: steps.config.outputs.exists == 'false'
+        run: gitleaks detect --source . --verbose
