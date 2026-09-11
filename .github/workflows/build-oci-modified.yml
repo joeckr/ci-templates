@@ -60,12 +60,12 @@ jobs:
         id: set-matrix
         run: |
             FILE_NAME=$(echo "${{ inputs.versions-file }}" | tr -d '\r" ' | sed 's|^./||')
-          
+
             echo "Parsing $FILE_NAME..."
-            
+
             # Read JSON content directly with jq
             MATRIX_JSON=$(jq -c . "$FILE_NAME")
-            
+
             if [ -z "$MATRIX_JSON" ]; then
               echo "ERROR: Failed to parse $FILE_NAME or file is empty!"
               exit 1
