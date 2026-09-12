@@ -230,6 +230,31 @@ jobs:
 
 ---
 
+### `actionlint.yml`
+Reusable workflow to run Actionlint for linting GitHub Actions workflows.
+
+#### Features
+- **Workflow Linting**: Uses `actionlint` to static check GitHub Actions workflows.
+- **Fast Execution**: Downloads the official actionlint binary to run locally in the runner.
+
+#### Example Usage
+
+```yaml
+name: Run Actionlint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  actionlint:
+    uses: <org-name>/<repo-name>/.github/workflows/actionlint.yml@main
+```
+
+---
+
 ## Local Development & Conventional Commits (`mise` & `prek`)
 
 This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool management, and [`prek`](https://github.com/j178/prek) (a fast Rust-based git hook runner configured via `prek.toml`) to enforce [Conventional Commits](https://www.conventionalcommits.org/) pre-commit.
