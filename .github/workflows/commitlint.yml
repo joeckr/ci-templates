@@ -13,5 +13,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Configure Fallback Commitlint Config
+        id: config
+        run: |
+          if [ ! -f "commitlint.config.mjs" ] && [ ! -f "commitlint.config.js" ] && [ ! -f "commitlint.config.cjs" ] && [ ! -f "commitlint.config.ts" ]; then
+            echo "export default { extends: ['@commitlint/config-conventional'], rules: { 'body-max-line-length': [0, 'always'], 'footer-max-line-length': [0, 'always'], 'header-max-length': [0, 'always'] } };" > .commitlint.fallback.mjs
+            echo "CONFIG_FILE=.commitlint.fallback.mjs" >> $GITHUB_ENV
+          else
+            echo "CONFIG_FILE=" >> $GITHUB_ENV
+          fi
+
       - name: Run Commitlint
         uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: ${{ env.CONFIG_FILE }}

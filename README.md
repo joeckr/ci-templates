@@ -315,7 +315,7 @@ on:
 
 jobs:
   hadolint:
-    uses: joeckr/ci-templates/.github/workflows/hadolint.yml@main
+    uses: <org-name>/<repo-name>/.github/workflows/hadolint.yml@main
     with:
       dockerfile: 'Dockerfile'
       # Optional configurations:
