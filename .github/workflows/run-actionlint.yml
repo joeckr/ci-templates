@@ -1,0 +1,11 @@
+name: Run Actionlint
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  actionlint:
+    uses: ./.github/workflows/actionlint.yml

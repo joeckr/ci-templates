@@ -98,7 +98,7 @@ jobs:
           if [ -z "$TOKEN" ]; then
             TOKEN="${{ secrets.GITHUB_TOKEN }}"
           fi
-          echo "token=$TOKEN" >> $GITHUB_OUTPUT
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -114,13 +114,13 @@ jobs:
           CHART_PATH="${{ inputs.chart-path }}"
           CLEAN_PATH=$(echo "$CHART_PATH" | tr -d '\r" ' | sed 's|^./||')
           if [ -n "$CLEAN_PATH" ] && [ -f "$CLEAN_PATH/Chart.yaml" ]; then
-            echo "chart_path=$CLEAN_PATH" >> $GITHUB_OUTPUT
+            echo "chart_path=$CLEAN_PATH" >> "$GITHUB_OUTPUT"
             echo "Chart found at: $CLEAN_PATH/Chart.yaml"
           elif [ -n "$CLEAN_PATH" ] && [ "$CLEAN_PATH" != "chart" ]; then
             echo "ERROR: Chart.yaml not found at specified chart-path '$CLEAN_PATH'!"
             exit 1
           else
-            echo "chart_path=" >> $GITHUB_OUTPUT
+            echo "chart_path=" >> "$GITHUB_OUTPUT"
             echo "No Helm chart found at '$CLEAN_PATH', skipping Helm chart updates."
           fi
 
@@ -132,7 +132,7 @@ jobs:
           # Discover previous tag and version directly from Git tags
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           if [ -n "$PREV_TAG" ]; then
-            PREV_VERSION=$(echo "$PREV_TAG" | sed "s|^${TAG_PREFIX}||")
+            PREV_VERSION="${PREV_TAG#"$TAG_PREFIX"}"
             COMMIT_LOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"%s")
           else
             PREV_TAG="none"
@@ -203,13 +203,15 @@ jobs:
             SHOULD_RELEASE="false"
           fi
 
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "previous_version=$PREV_VERSION" >> $GITHUB_OUTPUT
-          echo "previous_tag=$PREV_TAG" >> $GITHUB_OUTPUT
-          echo "bump=$BUMP" >> $GITHUB_OUTPUT
-          echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
-          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+          {
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+            echo "previous_version=$PREV_VERSION"
+            echo "previous_tag=$PREV_TAG"
+            echo "bump=$BUMP"
+            echo "should_release=$SHOULD_RELEASE"
+            echo "changed=$CHANGED"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Version Summary:"
           echo " - Current / Previous Version: $PREV_VERSION ($PREV_TAG)"
@@ -242,7 +244,7 @@ jobs:
           git diff "$TARGET_FILE"
           echo "::endgroup::"
 
-          echo "chart_updated=true" >> $GITHUB_OUTPUT
+          echo "chart_updated=true" >> "$GITHUB_OUTPUT"
 
       - name: Commit Chart Updates to Git
         if: ${{ steps.update-chart.outputs.chart_updated == 'true' && steps.process.outputs.should_release == 'true' }}
@@ -295,12 +297,14 @@ jobs:
       - name: Export Workflow Outputs
         id: export
         run: |
-          echo "version=${{ steps.process.outputs.version }}" >> $GITHUB_OUTPUT
-          echo "tag=${{ steps.process.outputs.tag }}" >> $GITHUB_OUTPUT
-          echo "previous-version=${{ steps.process.outputs.previous_version }}" >> $GITHUB_OUTPUT
-          echo "previous-tag=${{ steps.process.outputs.previous_tag }}" >> $GITHUB_OUTPUT
-          echo "bump=${{ steps.process.outputs.bump }}" >> $GITHUB_OUTPUT
-          echo "released=${{ steps.process.outputs.should_release }}" >> $GITHUB_OUTPUT
+          {
+            echo "version=${{ steps.process.outputs.version }}"
+            echo "tag=${{ steps.process.outputs.tag }}"
+            echo "previous-version=${{ steps.process.outputs.previous_version }}"
+            echo "previous-tag=${{ steps.process.outputs.previous_tag }}"
+            echo "bump=${{ steps.process.outputs.bump }}"
+            echo "released=${{ steps.process.outputs.should_release }}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate Summary
         if: always()
@@ -336,4 +340,4 @@ jobs:
             if [ "$RELEASED" = "true" ]; then
               echo "🚀 Successfully created tag and release [\`${TAG}\`](${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG})!"
             fi
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"

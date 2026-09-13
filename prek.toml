@@ -24,6 +24,7 @@ hooks = [
   { id = "trailing-whitespace" },
   { id = "end-of-file-fixer" },
   { id = "check-yaml", args = ["--allow-multiple-documents"] },
+  { id = "check-toml" },
   { id = "check-added-large-files" },
   { id = "no-commit-to-branch", args = ["--branch", "main"] }
 ]
@@ -33,4 +34,11 @@ repo = "https://github.com/gitleaks/gitleaks"
 rev = "v8.28.0"
 hooks = [
   { id = "gitleaks" }
+]
+
+[[repos]]
+repo = "https://github.com/rhysd/actionlint"
+rev = "v1.7.12"
+hooks = [
+  { id = "actionlint" }
 ]

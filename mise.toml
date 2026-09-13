@@ -1,4 +1,5 @@
 [tools]
+actionlint = "latest"
 prek = "latest"
 
 [tasks."hooks:install"]

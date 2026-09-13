@@ -181,7 +181,7 @@ jobs:
           echo "::endgroup::"
 
           PACKAGES_JSON=$(find .helm-packages -name "*.tgz" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
-          echo "packages=$PACKAGES_JSON" >> $GITHUB_OUTPUT
+          echo "packages=$PACKAGES_JSON" >> "$GITHUB_OUTPUT"
           echo "Generated packages: $PACKAGES_JSON"
 
       - name: Push Charts to Registry
@@ -253,4 +253,4 @@ jobs:
             echo "- **Registry**: \`${REGISTRY}\`"
             echo "- **Owner/Org**: \`${OWNER}\`"
             echo "- **Dry Run**: \`${{ inputs.dry-run }}\`"
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"
