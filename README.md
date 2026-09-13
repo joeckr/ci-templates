@@ -74,6 +74,8 @@ Reusable matrix container build workflow for building and pushing multi-platform
 - **Dynamic Matrix from JSON**: Automatically parses a `versions.json` configuration file into a GitHub Actions build matrix.
 - **Multi-Platform Support**: Sets up QEMU and Docker Buildx to build for multiple architectures (default: `linux/amd64,linux/arm64`).
 - **Flexible Tagging**: Automatically tags images using major version (`<image>:<major>`), upstream version (`<image>:<upstream>`), and optionally `:latest` and `:lts` flags.
+- **Vulnerability Scanning (Trivy)**: Non-blocking security scanning on pull requests and pushes, surfacing findings in the GitHub Security tab via SARIF and in the Actions Job Summary table.
+- **SBOM Generation**: Automatically produces Software Bill of Materials (CycloneDX JSON or SPDX JSON) and uploads them as workflow artifacts per matrix version.
 - **Buildx Caching**: Leverages GitHub Actions cache (`type=gha`) for fast incremental builds.
 - **Dry-Run & PR Safety**: Skips image push on pull requests or when `dry-run: true`.
 
@@ -123,6 +125,11 @@ jobs:
       # context: '.'
       # registry: 'ghcr.io'
       # dry-run: false
+      # enable-trivy: true
+      # enable-sbom: true
+      # trivy-severity: 'CRITICAL,HIGH'
+      # trivy-ignore-unfixed: false
+      # sbom-format: 'cyclonedx'
 ```
 
 #### Inputs
@@ -136,6 +143,11 @@ jobs:
 | `platforms` | Target container platforms | No | `'linux/amd64,linux/arm64'` |
 | `registry` | Container registry to push to | No | `'ghcr.io'` |
 | `dry-run` | Build images on PR or test without pushing | No | `false` |
+| `enable-trivy` | Run Trivy vulnerability scanner | No | `true` |
+| `enable-sbom` | Generate and upload an SBOM artifact | No | `true` |
+| `trivy-severity` | Vulnerability severities to scan for (comma-separated) | No | `'CRITICAL,HIGH'` |
+| `trivy-ignore-unfixed` | Ignore vulnerabilities without an available fix | No | `false` |
+| `sbom-format` | SBOM output format (`cyclonedx` or `spdx-json`) | No | `'cyclonedx'` |
 
 ---
 
