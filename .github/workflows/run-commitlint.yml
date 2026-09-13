@@ -6,6 +6,13 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+  pull-requests: read # required to fetch PR metadata
+
 jobs:
   commitlint:
-    uses: ./.github/workflows/commitlint.yml
+    permissions:
+      contents: read
+      pull-requests: read # required to fetch PR metadata
+    uses: $/.github/workflows/commitlint.yml

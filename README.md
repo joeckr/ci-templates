@@ -386,6 +386,8 @@ This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool ma
 - **Branch Protection**: Prevents direct commits to `main` via `no-commit-to-branch` (enforcing feature branches and pull requests).
 - **Secret Detection**: Scans for leaked credentials via `gitleaks` on `pre-commit`.
 - **YAML Validation**: Validates YAML syntax across workflows and charts via `check-yaml` (`--allow-multiple-documents`).
+- **Workflow Linting**: Lints GitHub Actions workflows for syntax and semantics via `actionlint`.
+- **Security Linting**: Audits GitHub Actions workflows for security vulnerabilities via `zizmor`.
 - **Code Hygiene**: Trims trailing whitespace and ensures clean file endings.
 
 ### Conventional Commits Format

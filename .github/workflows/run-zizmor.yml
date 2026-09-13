@@ -8,10 +8,10 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   zizmor:
     permissions:
-      security-events: write
-    uses: ./.github/workflows/zizmor.yml
+      contents: read
+      security-events: write # required to upload SARIF results to GitHub Advanced Security
+    uses: $/.github/workflows/zizmor.yml

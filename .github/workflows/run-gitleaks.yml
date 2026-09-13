@@ -6,6 +6,11 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   gitleaks:
-    uses: ./.github/workflows/gitleaks.yml
+    permissions:
+      contents: read
+    uses: $/.github/workflows/gitleaks.yml

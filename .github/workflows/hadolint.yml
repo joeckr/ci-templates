@@ -24,16 +24,23 @@ on:
         type: string
         default: ''
 
+permissions:
+  contents: read
+
 jobs:
   hadolint:
     name: Run Hadolint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Run Hadolint
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
         with:
           dockerfile: ${{ inputs.dockerfile }}
           recursive: ${{ inputs.recursive }}
