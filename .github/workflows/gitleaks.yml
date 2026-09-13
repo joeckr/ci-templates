@@ -23,9 +23,9 @@ jobs:
         id: config
         run: |
           if [ -f "gitleaks.toml" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run Gitleaks with config

@@ -71,7 +71,7 @@ jobs:
               exit 1
             fi
 
-            echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+            echo "matrix=$MATRIX_JSON" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build Image
@@ -127,7 +127,7 @@ jobs:
             TAG_LIST="${TAG_LIST},${REPO}:lts"
           fi
 
-          echo "tags=$TAG_LIST" >> $GITHUB_OUTPUT
+          echo "tags=$TAG_LIST" >> "$GITHUB_OUTPUT"
 
       - name: Build & Push Image
         uses: docker/build-push-action@v6
