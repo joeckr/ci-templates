@@ -6,64 +6,28 @@ Repository for storing reusable CI templates and GitHub Actions workflows.
 
 ## Workflows
 
-### `push-helm-ghcr.yml`
-Reusable workflow to lint, package, and push Helm charts to GitHub Container Registry (GHCR) as OCI artifacts.
+### `actionlint.yml`
+Reusable workflow to run Actionlint for linting GitHub Actions workflows.
 
 #### Features
-- **Helm OCI Packaging**: Packages charts and pushes them directly to GHCR via native OCI registry support (`oci://ghcr.io/...`).
-- **GHCR Owner Lowercasing**: Automatically converts username/org namespace to lowercase to prevent GHCR rejected name errors.
-- **Smart Chart Discovery**: Automatically scans a directory (default `chart`) for charts, or targets a specific chart via `chart-path`.
-- **Conditional Dependency Build**: Checks for `Chart.lock` or `dependencies:` in `Chart.yaml` before running `helm dependency build`.
-- **Linting & Safety**: Runs `helm lint` by default; automatically operates in dry-run mode on pull requests or when `dry-run: true`.
-- **Step Summary**: Emits a markdown table into the GitHub Actions run summary detailing packaged charts and destination OCI URLs.
+- **Workflow Linting**: Uses `actionlint` to static check GitHub Actions workflows.
+- **Fast Execution**: Downloads the official actionlint binary to run locally in the runner.
 
 #### Example Usage
 
 ```yaml
-name: Publish Helm Chart
+name: Run Actionlint
 
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  helm:
-    permissions:
-      contents: read
-      packages: write
-    uses: joeckr/ci-templates/.github/workflows/push-helm-ghcr.yml@main
-    with:
-      charts-dir: 'chart'
-      # Optional: specify a single chart instead of scanning
-      # chart-path: 'chart/my-app'
-      # Optional: test without pushing
-      # dry-run: false
-    secrets:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+  actionlint:
+    uses: joeckr/ci-templates/.github/workflows/actionlint.yml@main
 ```
-
-#### Inputs
-| Input | Description | Required | Default |
-| --- | --- | --- | --- |
-| `chart-path` | Path to a single chart directory (e.g. `chart/my-chart`). If provided, `charts-dir` is ignored | No | `''` |
-| `charts-dir` | Directory containing Helm charts relative to repo root | No | `'chart'` |
-| `registry` | Container registry to push to | No | `'ghcr.io'` |
-| `org` | Organization or user owning the registry namespace | No | `${{ github.repository_owner }}` |
-| `subpath` | Optional subpath under registry namespace | No | `''` |
-| `helm-version` | Helm version to install | No | `'latest'` |
-| `version` | Optional version override for chart packaging | No | `''` |
-| `app-version` | Optional appVersion override for chart packaging | No | `''` |
-| `dependency-update` | Run `helm dependency build` prior to packaging | No | `true` |
-| `lint` | Run `helm lint` prior to packaging | No | `true` |
-| `dry-run` | Package and lint charts without pushing to registry | No | `false` |
-
-#### Secrets
-| Secret | Description | Required | Default |
-| --- | --- | --- | --- |
-| `github-token` | Token for authenticating with the registry | No | `secrets.GITHUB_TOKEN` |
 
 ---
 
@@ -148,6 +112,156 @@ jobs:
 | `trivy-severity` | Vulnerability severities to scan for (comma-separated) | No | `'CRITICAL,HIGH'` |
 | `trivy-ignore-unfixed` | Ignore vulnerabilities without an available fix | No | `false` |
 | `sbom-format` | SBOM output format (`cyclonedx` or `spdx-json`) | No | `'cyclonedx'` |
+
+---
+
+### `commitlint.yml`
+Reusable workflow to run Commitlint for linting conventional commit messages.
+
+#### Features
+- **Commit Linting**: Uses `wagoid/commitlint-github-action` to lint commit messages.
+- **Dynamic Fallback Config**: Generates a fallback configuration to disable standard line-length limits for the header, body, and footer, accommodating detailed, longer commit messages without requiring downstream repos to maintain their own configuration.
+
+#### Example Usage
+
+```yaml
+name: Run Commitlint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  commitlint:
+    uses: joeckr/ci-templates/.github/workflows/commitlint.yml@main
+```
+
+---
+
+### `gitleaks.yml`
+Reusable workflow to run Gitleaks for secret detection.
+
+#### Features
+- **Config Detection**: Automatically checks for the presence of a `gitleaks.toml` file in the root of the repository. If found, it uses the provided configuration; otherwise, it runs a full scan with default settings.
+- **Secret Scanning**: Downloads the latest Gitleaks binary to explicitly execute full repository scans to detect hardcoded secrets, passwords, and API keys.
+
+#### Example Usage
+
+```yaml
+name: Gitleaks Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  gitleaks:
+    uses: joeckr/ci-templates/.github/workflows/gitleaks.yml@main
+```
+
+---
+
+### `hadolint.yml`
+Reusable workflow to run Hadolint for linting Dockerfiles.
+
+#### Features
+- **Dockerfile Linting**: Uses `hadolint/hadolint-action` to lint Dockerfiles and enforce best practices.
+- **Configurable**: Supports custom configuration files and severity thresholds.
+- **Recursive Scanning**: Optionally scan all Dockerfiles in a repository recursively.
+
+#### Example Usage
+
+```yaml
+name: Run Hadolint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  hadolint:
+    uses: joeckr/ci-templates/.github/workflows/hadolint.yml@main
+    with:
+      dockerfile: 'Dockerfile'
+      # Optional configurations:
+      # recursive: false
+      # failure-threshold: 'info'
+      # config: '.hadolint.yaml'
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `dockerfile` | Path to the Dockerfile to lint | No | `'Dockerfile'` |
+| `recursive` | Lint all Dockerfiles in the repository recursively | No | `false` |
+| `failure-threshold` | Fail the pipeline when issues of this severity or higher are found (error, warning, info, style) | No | `'info'` |
+| `config` | Path to a custom hadolint config file | No | `''` |
+
+---
+
+### `push-helm-ghcr.yml`
+Reusable workflow to lint, package, and push Helm charts to GitHub Container Registry (GHCR) as OCI artifacts.
+
+#### Features
+- **Helm OCI Packaging**: Packages charts and pushes them directly to GHCR via native OCI registry support (`oci://ghcr.io/...`).
+- **GHCR Owner Lowercasing**: Automatically converts username/org namespace to lowercase to prevent GHCR rejected name errors.
+- **Smart Chart Discovery**: Automatically scans a directory (default `chart`) for charts, or targets a specific chart via `chart-path`.
+- **Conditional Dependency Build**: Checks for `Chart.lock` or `dependencies:` in `Chart.yaml` before running `helm dependency build`.
+- **Linting & Safety**: Runs `helm lint` by default; automatically operates in dry-run mode on pull requests or when `dry-run: true`.
+- **Step Summary**: Emits a markdown table into the GitHub Actions run summary detailing packaged charts and destination OCI URLs.
+
+#### Example Usage
+
+```yaml
+name: Publish Helm Chart
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  helm:
+    permissions:
+      contents: read
+      packages: write
+    uses: joeckr/ci-templates/.github/workflows/push-helm-ghcr.yml@main
+    with:
+      charts-dir: 'chart'
+      # Optional: specify a single chart instead of scanning
+      # chart-path: 'chart/my-app'
+      # Optional: test without pushing
+      # dry-run: false
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `chart-path` | Path to a single chart directory (e.g. `chart/my-chart`). If provided, `charts-dir` is ignored | No | `''` |
+| `charts-dir` | Directory containing Helm charts relative to repo root | No | `'chart'` |
+| `registry` | Container registry to push to | No | `'ghcr.io'` |
+| `org` | Organization or user owning the registry namespace | No | `${{ github.repository_owner }}` |
+| `subpath` | Optional subpath under registry namespace | No | `''` |
+| `helm-version` | Helm version to install | No | `'latest'` |
+| `version` | Optional version override for chart packaging | No | `''` |
+| `app-version` | Optional appVersion override for chart packaging | No | `''` |
+| `dependency-update` | Run `helm dependency build` prior to packaging | No | `true` |
+| `lint` | Run `helm lint` prior to packaging | No | `true` |
+| `dry-run` | Package and lint charts without pushing to registry | No | `false` |
+
+#### Secrets
+| Secret | Description | Required | Default |
+| --- | --- | --- | --- |
+| `github-token` | Token for authenticating with the registry | No | `secrets.GITHUB_TOKEN` |
 
 ---
 
@@ -242,31 +356,6 @@ jobs:
 
 ---
 
-### `actionlint.yml`
-Reusable workflow to run Actionlint for linting GitHub Actions workflows.
-
-#### Features
-- **Workflow Linting**: Uses `actionlint` to static check GitHub Actions workflows.
-- **Fast Execution**: Downloads the official actionlint binary to run locally in the runner.
-
-#### Example Usage
-
-```yaml
-name: Run Actionlint
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  actionlint:
-    uses: <org-name>/<repo-name>/.github/workflows/actionlint.yml@main
-```
-
----
-
 ## Local Development & Conventional Commits (`mise` & `prek`)
 
 This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool management, and [`prek`](https://github.com/j178/prek) (a fast Rust-based git hook runner configured via `prek.toml`) to enforce [Conventional Commits](https://www.conventionalcommits.org/) pre-commit.
@@ -305,66 +394,3 @@ Commits must follow the Conventional Commits specification:
 - `fix: resolve issue` -> triggers **patch** release
 - `feat!: breaking redesign` or footer `BREAKING CHANGE:` -> triggers **major** release
 - `chore:`, `docs:`, `ci:`, `test:`, `refactor:` -> maintenance changes
-
-### `gitleaks.yml`
-Reusable workflow to run Gitleaks for secret detection.
-
-#### Features
-- **Config Detection**: Automatically checks for the presence of a `gitleaks.toml` file in the root of the repository. If found, it uses the provided configuration; otherwise, it runs a full scan with default settings.
-- **Secret Scanning**: Downloads the latest Gitleaks binary to explicitly execute full repository scans to detect hardcoded secrets, passwords, and API keys.
-
-#### Example Usage
-
-```yaml
-name: Gitleaks Scan
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  gitleaks:
-    uses: <org-name>/<repo-name>/.github/workflows/gitleaks.yml@main
-```
-
----
-
-### `hadolint.yml`
-Reusable workflow to run Hadolint for linting Dockerfiles.
-
-#### Features
-- **Dockerfile Linting**: Uses `hadolint/hadolint-action` to lint Dockerfiles and enforce best practices.
-- **Configurable**: Supports custom configuration files and severity thresholds.
-- **Recursive Scanning**: Optionally scan all Dockerfiles in a repository recursively.
-
-#### Example Usage
-
-```yaml
-name: Run Hadolint
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  hadolint:
-    uses: <org-name>/<repo-name>/.github/workflows/hadolint.yml@main
-    with:
-      dockerfile: 'Dockerfile'
-      # Optional configurations:
-      # recursive: false
-      # failure-threshold: 'info'
-      # config: '.hadolint.yaml'
-```
-
-#### Inputs
-| Input | Description | Required | Default |
-| --- | --- | --- | --- |
-| `dockerfile` | Path to the Dockerfile to lint | No | `'Dockerfile'` |
-| `recursive` | Lint all Dockerfiles in the repository recursively | No | `false` |
-| `failure-threshold` | Fail the pipeline when issues of this severity or higher are found (error, warning, info, style) | No | `'info'` |
-| `config` | Path to a custom hadolint config file | No | `''` |
