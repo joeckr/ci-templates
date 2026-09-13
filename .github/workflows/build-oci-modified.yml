@@ -42,6 +42,31 @@ on:
         required: false
         type: boolean
         default: false
+      enable-trivy:
+        description: 'Run Trivy vulnerability scanner'
+        required: false
+        type: boolean
+        default: true
+      enable-sbom:
+        description: 'Generate and upload an SBOM artifact'
+        required: false
+        type: boolean
+        default: true
+      trivy-severity:
+        description: 'Vulnerability severities to scan for (comma-separated)'
+        required: false
+        type: string
+        default: 'CRITICAL,HIGH'
+      trivy-ignore-unfixed:
+        description: 'Ignore vulnerabilities without an available fix'
+        required: false
+        type: boolean
+        default: false
+      sbom-format:
+        description: 'SBOM output format (cyclonedx or spdx-json)'
+        required: false
+        type: string
+        default: 'cyclonedx'
 
 jobs:
   matrix-setup:
@@ -127,12 +152,101 @@ jobs:
             TAG_LIST="${TAG_LIST},${REPO}:lts"
           fi
 
+          SCAN_TAG="local/${{ inputs.image }}:${UPSTREAM}"
+
           echo "tags=$TAG_LIST" >> "$GITHUB_OUTPUT"
+          echo "scan-tag=$SCAN_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build and Load Local Image (amd64)
+        if: inputs.enable-trivy || inputs.enable-sbom
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          build-args: |
+              VERSION=${{ matrix.version.upstream }}
+          platforms: linux/amd64
+          load: true
+          tags: ${{ steps.tags.outputs.scan-tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy Vulnerability Scanner (SARIF)
+        if: inputs.enable-trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.tags.outputs.scan-tag }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: ${{ inputs.trivy-severity }}
+          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+          exit-code: '0'
+
+      - name: Upload Trivy SARIF to GitHub Security Tab
+        if: inputs.enable-trivy && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'trivy-${{ inputs.image }}-${{ matrix.version.upstream }}'
+
+      - name: Run Trivy Vulnerability Scanner (Table)
+        if: inputs.enable-trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.tags.outputs.scan-tag }}
+          format: 'table'
+          output: 'trivy-table.txt'
+          severity: ${{ inputs.trivy-severity }}
+          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+          exit-code: '0'
+          skip-setup-trivy: true
+
+      - name: Generate SBOM
+        if: inputs.enable-sbom
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.tags.outputs.scan-tag }}
+          format: ${{ inputs.sbom-format }}
+          output: 'sbom-${{ matrix.version.upstream }}.json'
+          skip-setup-trivy: true
+
+      - name: Upload SBOM Artifact
+        if: inputs.enable-sbom
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ inputs.image }}-${{ matrix.version.upstream }}
+          path: 'sbom-${{ matrix.version.upstream }}.json'
+          if-no-files-found: warn
+
+      - name: Publish Security & SBOM Summary
+        if: (inputs.enable-trivy || inputs.enable-sbom) && always()
+        run: |
+          if [ -f trivy-table.txt ] && [ -s trivy-table.txt ]; then
+            {
+              echo "### 🛡️ Trivy Vulnerability Scan: \`${{ inputs.image }}:${{ matrix.version.upstream }}\`"
+              echo "**Severity filter:** \`${{ inputs.trivy-severity }}\` | **Ignore unfixed:** \`${{ inputs.trivy-ignore-unfixed }}\`"
+              echo ""
+              echo "<details><summary>Click to view vulnerability findings</summary>"
+              echo ""
+              echo '```text'
+              cat trivy-table.txt
+              echo '```'
+              echo "</details>"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -f "sbom-${{ matrix.version.upstream }}.json" ]; then
+            {
+              echo ""
+              echo "📦 **SBOM Generated:** \`sbom-${{ matrix.version.upstream }}.json\` (Format: \`${{ inputs.sbom-format }}\`)"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Build & Push Image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           build-args: |
               VERSION=${{ matrix.version.upstream }}

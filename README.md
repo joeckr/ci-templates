@@ -6,6 +6,204 @@ Repository for storing reusable CI templates and GitHub Actions workflows.
 
 ## Workflows
 
+### `actionlint.yml`
+Reusable workflow to run Actionlint for linting GitHub Actions workflows.
+
+#### Features
+- **Workflow Linting**: Uses `actionlint` to static check GitHub Actions workflows.
+- **Fast Execution**: Downloads the official actionlint binary to run locally in the runner.
+
+#### Example Usage
+
+```yaml
+name: Run Actionlint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  actionlint:
+    uses: joeckr/ci-templates/.github/workflows/actionlint.yml@main
+```
+
+---
+
+### `build-oci-modified.yml`
+Reusable matrix container build workflow for building and pushing multi-platform container images based on upstream versions.
+
+#### Features
+- **Dynamic Matrix from JSON**: Automatically parses a `versions.json` configuration file into a GitHub Actions build matrix.
+- **Multi-Platform Support**: Sets up QEMU and Docker Buildx to build for multiple architectures (default: `linux/amd64,linux/arm64`).
+- **Flexible Tagging**: Automatically tags images using major version (`<image>:<major>`), upstream version (`<image>:<upstream>`), and optionally `:latest` and `:lts` flags.
+- **Vulnerability Scanning (Trivy)**: Non-blocking security scanning on pull requests and pushes, surfacing findings in the GitHub Security tab via SARIF and in the Actions Job Summary table.
+- **SBOM Generation**: Automatically produces Software Bill of Materials (CycloneDX JSON or SPDX JSON) and uploads them as workflow artifacts per matrix version.
+- **Buildx Caching**: Leverages GitHub Actions cache (`type=gha`) for fast incremental builds.
+- **Dry-Run & PR Safety**: Skips image push on pull requests or when `dry-run: true`.
+
+#### Example `versions.json`
+```json
+[
+  {
+    "major": "1",
+    "upstream": "1.28.3",
+    "latest": true,
+    "lts": false
+  },
+  {
+    "major": "2",
+    "upstream": "2.1.0",
+    "latest": false,
+    "lts": true
+  }
+]
+```
+
+#### Example Usage
+
+```yaml
+name: Build and Push Container Images
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    uses: joeckr/ci-templates/.github/workflows/build-oci-modified.yml@main
+    with:
+      image: 'my-app'
+      # Optional configurations:
+      # versions-file: 'versions.json'
+      # platforms: 'linux/amd64,linux/arm64'
+      # dockerfile: 'Dockerfile'
+      # context: '.'
+      # registry: 'ghcr.io'
+      # dry-run: false
+      # enable-trivy: true
+      # enable-sbom: true
+      # trivy-severity: 'CRITICAL,HIGH'
+      # trivy-ignore-unfixed: false
+      # sbom-format: 'cyclonedx'
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `image` | Name of the image to build | **Yes** | — |
+| `versions-file` | Path to `versions.json` relative to repo root | No | `'versions.json'` |
+| `org` | Name of the org or individual user | No | `${{ github.actor }}` |
+| `context` | Build context path | No | `'.'` |
+| `dockerfile` | Path to Dockerfile relative to context | No | `'Dockerfile'` |
+| `platforms` | Target container platforms | No | `'linux/amd64,linux/arm64'` |
+| `registry` | Container registry to push to | No | `'ghcr.io'` |
+| `dry-run` | Build images on PR or test without pushing | No | `false` |
+| `enable-trivy` | Run Trivy vulnerability scanner | No | `true` |
+| `enable-sbom` | Generate and upload an SBOM artifact | No | `true` |
+| `trivy-severity` | Vulnerability severities to scan for (comma-separated) | No | `'CRITICAL,HIGH'` |
+| `trivy-ignore-unfixed` | Ignore vulnerabilities without an available fix | No | `false` |
+| `sbom-format` | SBOM output format (`cyclonedx` or `spdx-json`) | No | `'cyclonedx'` |
+
+---
+
+### `commitlint.yml`
+Reusable workflow to run Commitlint for linting conventional commit messages.
+
+#### Features
+- **Commit Linting**: Uses `wagoid/commitlint-github-action` to lint commit messages.
+- **Dynamic Fallback Config**: Generates a fallback configuration to disable standard line-length limits for the header, body, and footer, accommodating detailed, longer commit messages without requiring downstream repos to maintain their own configuration.
+
+#### Example Usage
+
+```yaml
+name: Run Commitlint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  commitlint:
+    uses: joeckr/ci-templates/.github/workflows/commitlint.yml@main
+```
+
+---
+
+### `gitleaks.yml`
+Reusable workflow to run Gitleaks for secret detection.
+
+#### Features
+- **Config Detection**: Automatically checks for the presence of a `gitleaks.toml` file in the root of the repository. If found, it uses the provided configuration; otherwise, it runs a full scan with default settings.
+- **Secret Scanning**: Downloads the latest Gitleaks binary to explicitly execute full repository scans to detect hardcoded secrets, passwords, and API keys.
+
+#### Example Usage
+
+```yaml
+name: Gitleaks Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  gitleaks:
+    uses: joeckr/ci-templates/.github/workflows/gitleaks.yml@main
+```
+
+---
+
+### `hadolint.yml`
+Reusable workflow to run Hadolint for linting Dockerfiles.
+
+#### Features
+- **Dockerfile Linting**: Uses `hadolint/hadolint-action` to lint Dockerfiles and enforce best practices.
+- **Configurable**: Supports custom configuration files and severity thresholds.
+- **Recursive Scanning**: Optionally scan all Dockerfiles in a repository recursively.
+
+#### Example Usage
+
+```yaml
+name: Run Hadolint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  hadolint:
+    uses: joeckr/ci-templates/.github/workflows/hadolint.yml@main
+    with:
+      dockerfile: 'Dockerfile'
+      # Optional configurations:
+      # recursive: false
+      # failure-threshold: 'info'
+      # config: '.hadolint.yaml'
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `dockerfile` | Path to the Dockerfile to lint | No | `'Dockerfile'` |
+| `recursive` | Lint all Dockerfiles in the repository recursively | No | `false` |
+| `failure-threshold` | Fail the pipeline when issues of this severity or higher are found (error, warning, info, style) | No | `'info'` |
+| `config` | Path to a custom hadolint config file | No | `''` |
+
+---
+
 ### `push-helm-ghcr.yml`
 Reusable workflow to lint, package, and push Helm charts to GitHub Container Registry (GHCR) as OCI artifacts.
 
@@ -64,78 +262,6 @@ jobs:
 | Secret | Description | Required | Default |
 | --- | --- | --- | --- |
 | `github-token` | Token for authenticating with the registry | No | `secrets.GITHUB_TOKEN` |
-
----
-
-### `build-oci-modified.yml`
-Reusable matrix container build workflow for building and pushing multi-platform container images based on upstream versions.
-
-#### Features
-- **Dynamic Matrix from JSON**: Automatically parses a `versions.json` configuration file into a GitHub Actions build matrix.
-- **Multi-Platform Support**: Sets up QEMU and Docker Buildx to build for multiple architectures (default: `linux/amd64,linux/arm64`).
-- **Flexible Tagging**: Automatically tags images using major version (`<image>:<major>`), upstream version (`<image>:<upstream>`), and optionally `:latest` and `:lts` flags.
-- **Buildx Caching**: Leverages GitHub Actions cache (`type=gha`) for fast incremental builds.
-- **Dry-Run & PR Safety**: Skips image push on pull requests or when `dry-run: true`.
-
-#### Example `versions.json`
-```json
-[
-  {
-    "major": "1",
-    "upstream": "1.28.3",
-    "latest": true,
-    "lts": false
-  },
-  {
-    "major": "2",
-    "upstream": "2.1.0",
-    "latest": false,
-    "lts": true
-  }
-]
-```
-
-#### Example Usage
-
-```yaml
-name: Build and Push Container Images
-
-on:
-  push:
-    branches: [ main ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  build:
-    permissions:
-      contents: read
-      packages: write
-      security-events: write
-    uses: joeckr/ci-templates/.github/workflows/build-oci-modified.yml@main
-    with:
-      image: 'my-app'
-      # Optional configurations:
-      # versions-file: 'versions.json'
-      # platforms: 'linux/amd64,linux/arm64'
-      # dockerfile: 'Dockerfile'
-      # context: '.'
-      # registry: 'ghcr.io'
-      # dry-run: false
-```
-
-#### Inputs
-| Input | Description | Required | Default |
-| --- | --- | --- | --- |
-| `image` | Name of the image to build | **Yes** | — |
-| `versions-file` | Path to `versions.json` relative to repo root | No | `'versions.json'` |
-| `org` | Name of the org or individual user | No | `${{ github.actor }}` |
-| `context` | Build context path | No | `'.'` |
-| `dockerfile` | Path to Dockerfile relative to context | No | `'Dockerfile'` |
-| `platforms` | Target container platforms | No | `'linux/amd64,linux/arm64'` |
-| `registry` | Container registry to push to | No | `'ghcr.io'` |
-| `dry-run` | Build images on PR or test without pushing | No | `false` |
 
 ---
 
@@ -230,31 +356,6 @@ jobs:
 
 ---
 
-### `actionlint.yml`
-Reusable workflow to run Actionlint for linting GitHub Actions workflows.
-
-#### Features
-- **Workflow Linting**: Uses `actionlint` to static check GitHub Actions workflows.
-- **Fast Execution**: Downloads the official actionlint binary to run locally in the runner.
-
-#### Example Usage
-
-```yaml
-name: Run Actionlint
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  actionlint:
-    uses: <org-name>/<repo-name>/.github/workflows/actionlint.yml@main
-```
-
----
-
 ## Local Development & Conventional Commits (`mise` & `prek`)
 
 This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool management, and [`prek`](https://github.com/j178/prek) (a fast Rust-based git hook runner configured via `prek.toml`) to enforce [Conventional Commits](https://www.conventionalcommits.org/) pre-commit.
@@ -293,66 +394,3 @@ Commits must follow the Conventional Commits specification:
 - `fix: resolve issue` -> triggers **patch** release
 - `feat!: breaking redesign` or footer `BREAKING CHANGE:` -> triggers **major** release
 - `chore:`, `docs:`, `ci:`, `test:`, `refactor:` -> maintenance changes
-
-### `gitleaks.yml`
-Reusable workflow to run Gitleaks for secret detection.
-
-#### Features
-- **Config Detection**: Automatically checks for the presence of a `gitleaks.toml` file in the root of the repository. If found, it uses the provided configuration; otherwise, it runs a full scan with default settings.
-- **Secret Scanning**: Downloads the latest Gitleaks binary to explicitly execute full repository scans to detect hardcoded secrets, passwords, and API keys.
-
-#### Example Usage
-
-```yaml
-name: Gitleaks Scan
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  gitleaks:
-    uses: <org-name>/<repo-name>/.github/workflows/gitleaks.yml@main
-```
-
----
-
-### `hadolint.yml`
-Reusable workflow to run Hadolint for linting Dockerfiles.
-
-#### Features
-- **Dockerfile Linting**: Uses `hadolint/hadolint-action` to lint Dockerfiles and enforce best practices.
-- **Configurable**: Supports custom configuration files and severity thresholds.
-- **Recursive Scanning**: Optionally scan all Dockerfiles in a repository recursively.
-
-#### Example Usage
-
-```yaml
-name: Run Hadolint
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  hadolint:
-    uses: <org-name>/<repo-name>/.github/workflows/hadolint.yml@main
-    with:
-      dockerfile: 'Dockerfile'
-      # Optional configurations:
-      # recursive: false
-      # failure-threshold: 'info'
-      # config: '.hadolint.yaml'
-```
-
-#### Inputs
-| Input | Description | Required | Default |
-| --- | --- | --- | --- |
-| `dockerfile` | Path to the Dockerfile to lint | No | `'Dockerfile'` |
-| `recursive` | Lint all Dockerfiles in the repository recursively | No | `false` |
-| `failure-threshold` | Fail the pipeline when issues of this severity or higher are found (error, warning, info, style) | No | `'info'` |
-| `config` | Path to a custom hadolint config file | No | `''` |
