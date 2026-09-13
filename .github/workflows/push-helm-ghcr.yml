@@ -67,42 +67,51 @@ on:
         description: 'JSON array of packaged chart files'
         value: ${{ jobs.publish.outputs.packages }}
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     name: Package & Publish Helm Charts
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: write # required to publish OCI Helm charts to GitHub Packages (GHCR)
     outputs:
       packages: ${{ steps.package.outputs.packages }}
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: ${{ github.repository }}
           ref: ${{ github.ref }}
+          persist-credentials: false
 
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         with:
           version: ${{ inputs.helm-version }}
 
       - name: Log in to Registry
         if: ${{ !inputs.dry-run && github.event_name != 'pull_request' }}
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          ACTOR: ${{ github.actor }}
+          INPUT_TOKEN: ${{ secrets.github-token }}
+          GITHUB_TOKEN_FALLBACK: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TOKEN="${{ secrets.github-token }}"
-          if [ -z "$TOKEN" ]; then
-            TOKEN="${{ secrets.GITHUB_TOKEN }}"
-          fi
-          echo "$TOKEN" | helm registry login "${{ inputs.registry }}" --username "${{ github.actor }}" --password-stdin
+          TOKEN="${INPUT_TOKEN:-$GITHUB_TOKEN_FALLBACK}"
+          echo "$TOKEN" | helm registry login "$REGISTRY" --username "$ACTOR" --password-stdin
 
       - name: Discover and Validate Charts
         id: discover
+        env:
+          CHART_PATH: ${{ inputs.chart-path }}
+          CHARTS_DIR: ${{ inputs.charts-dir }}
+          DEPENDENCY_UPDATE: ${{ inputs.dependency-update }}
+          LINT: ${{ inputs.lint }}
         run: |
           CHARTS=()
-          CHART_PATH="${{ inputs.chart-path }}"
-          CHARTS_DIR="${{ inputs.charts-dir }}"
 
           if [ -n "$CHART_PATH" ]; then
             CLEAN_PATH=$(echo "$CHART_PATH" | tr -d '\r" ' | sed 's|^./||')
@@ -136,7 +145,7 @@ jobs:
           printf "%s\n" "${CHARTS[@]}" > .discovered_charts.txt
 
           # Dependency update
-          if [ "${{ inputs.dependency-update }}" = "true" ]; then
+          if [ "$DEPENDENCY_UPDATE" = "true" ]; then
             echo "::group::Building Chart Dependencies"
             for c in "${CHARTS[@]}"; do
               if [ -f "$c/Chart.lock" ] || grep -q '^dependencies:' "$c/Chart.yaml"; then
@@ -150,7 +159,7 @@ jobs:
           fi
 
           # Lint
-          if [ "${{ inputs.lint }}" = "true" ]; then
+          if [ "$LINT" = "true" ]; then
             echo "::group::Linting Charts"
             for c in "${CHARTS[@]}"; do
               echo "Linting $c..."
@@ -161,15 +170,18 @@ jobs:
 
       - name: Package Charts
         id: package
+        env:
+          VERSION: ${{ inputs.version }}
+          APP_VERSION: ${{ inputs.app-version }}
         run: |
           mkdir -p .helm-packages
 
           PACKAGE_FLAGS=()
-          if [ -n "${{ inputs.version }}" ]; then
-            PACKAGE_FLAGS+=(--version "${{ inputs.version }}")
+          if [ -n "$VERSION" ]; then
+            PACKAGE_FLAGS+=(--version "$VERSION")
           fi
-          if [ -n "${{ inputs.app-version }}" ]; then
-            PACKAGE_FLAGS+=(--app-version "${{ inputs.app-version }}")
+          if [ -n "$APP_VERSION" ]; then
+            PACKAGE_FLAGS+=(--app-version "$APP_VERSION")
           fi
 
           echo "::group::Packaging Charts"
@@ -186,11 +198,16 @@ jobs:
 
       - name: Push Charts to Registry
         id: push
+        env:
+          ORG: ${{ inputs.org }}
+          REGISTRY: ${{ inputs.registry }}
+          SUBPATH: ${{ inputs.subpath }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           # GHCR requires registry namespace/owner to be lowercase
-          OWNER=$(echo "${{ inputs.org }}" | tr '[:upper:]' '[:lower:]')
-          REGISTRY="${{ inputs.registry }}"
-          SUBPATH=$(echo "${{ inputs.subpath }}" | sed 's|^/*||;s|/*$||')
+          OWNER=$(echo "$ORG" | tr '[:upper:]' '[:lower:]')
+          SUBPATH=$(echo "$SUBPATH" | sed 's|^/*||;s|/*$||')
 
           if [ -n "$SUBPATH" ]; then
             OCI_DEST="oci://${REGISTRY}/${OWNER}/${SUBPATH}"
@@ -199,10 +216,10 @@ jobs:
           fi
 
           SHOULD_PUSH="true"
-          if [ "${{ inputs.dry-run }}" = "true" ]; then
+          if [ "$DRY_RUN" = "true" ]; then
             echo "Dry run enabled. Skipping push to registry."
             SHOULD_PUSH="false"
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+          elif [ "$EVENT_NAME" = "pull_request" ]; then
             echo "Pull request trigger detected. Skipping push to registry."
             SHOULD_PUSH="false"
           fi
@@ -223,10 +240,15 @@ jobs:
 
       - name: Generate Summary
         if: always()
+        env:
+          ORG: ${{ inputs.org }}
+          REGISTRY: ${{ inputs.registry }}
+          SUBPATH: ${{ inputs.subpath }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          OWNER=$(echo "${{ inputs.org }}" | tr '[:upper:]' '[:lower:]')
-          REGISTRY="${{ inputs.registry }}"
-          SUBPATH=$(echo "${{ inputs.subpath }}" | sed 's|^/*||;s|/*$||')
+          OWNER=$(echo "$ORG" | tr '[:upper:]' '[:lower:]')
+          SUBPATH=$(echo "$SUBPATH" | sed 's|^/*||;s|/*$||')
 
           if [ -n "$SUBPATH" ]; then
             OCI_DEST="oci://${REGISTRY}/${OWNER}/${SUBPATH}"
@@ -235,7 +257,7 @@ jobs:
           fi
 
           STATUS="Pushed"
-          if [ "${{ inputs.dry-run }}" = "true" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "$DRY_RUN" = "true" ] || [ "$EVENT_NAME" = "pull_request" ]; then
             STATUS="Dry Run (Not Pushed)"
           fi
 
@@ -252,5 +274,5 @@ jobs:
             echo ""
             echo "- **Registry**: \`${REGISTRY}\`"
             echo "- **Owner/Org**: \`${OWNER}\`"
-            echo "- **Dry Run**: \`${{ inputs.dry-run }}\`"
+            echo "- **Dry Run**: \`${DRY_RUN}\`"
           } >> "$GITHUB_STEP_SUMMARY"

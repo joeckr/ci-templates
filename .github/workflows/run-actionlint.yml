@@ -6,6 +6,11 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   actionlint:
-    uses: ./.github/workflows/actionlint.yml
+    permissions:
+      contents: read
+    uses: $/.github/workflows/actionlint.yml

@@ -1,0 +1,15 @@
+# ==============================================================================
+# TOOL CONFIGURATION: actionlint (Linter Configuration — NOT a GitHub Workflow)
+# Docs: https://github.com/rhysd/actionlint/blob/main/docs/config.md
+# ==============================================================================
+# Workaround for upstream actionlint issue #711:
+# Actionlint v1.7.12 predates GitHub's July 2026 '$/' self-repository syntax.
+# This config suppresses false positives until actionlint adds native '$/' support.
+# ==============================================================================
+
+paths:
+  .github/workflows/**/*.{yaml,yml}:
+    ignore:
+      # Support GitHub's dedicated self-repository '$/' syntax (introduced July 2026)
+      - 'reusable workflow call "\$/.+" at "uses" is not following the format.+'
+      - 'specifying action "\$/.+" in invalid format because ref is missing.+'
