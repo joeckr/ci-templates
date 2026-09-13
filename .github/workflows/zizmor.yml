@@ -1,0 +1,19 @@
+name: Zizmor
+
+on:
+  workflow_call:
+
+jobs:
+  zizmor:
+    name: Run Zizmor
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Zizmor
+        uses: zizmorcore/zizmor-action@v1.2.1
+        with:
+          version: latest
