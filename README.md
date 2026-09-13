@@ -265,31 +265,6 @@ jobs:
 
 ---
 
-### `release.yml`
-Reusable caller workflow to automatically create semantic releases for the `ci-templates` repository itself.
-
-#### Features
-- **Semantic Release**: Calls the `semantic.yml` reusable workflow to automatically create a GitHub Release based on conventional commits.
-
-#### Example Usage
-
-```yaml
-name: Release ci-templates
-
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  semver:
-    permissions:
-      contents: write
-    uses: joeckr/ci-templates/.github/workflows/release.yml@main
-```
-
----
-
 ### `semantic.yml`
 Reusable workflow for automated Semantic Versioning (SemVer), Conventional Commits analysis, Helm chart metadata synchronization, and GitHub Releases.
 
