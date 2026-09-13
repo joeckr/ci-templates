@@ -356,6 +356,34 @@ jobs:
 
 ---
 
+### `zizmor.yml`
+Reusable workflow to run Zizmor for workflow security linting.
+
+#### Features
+- **Security Linting**: Uses `zizmor` to audit GitHub Actions workflows for security vulnerabilities.
+- **GitHub Advanced Security Integration**: Uploads SARIF results to surface findings in the GitHub Security tab.
+
+#### Example Usage
+
+```yaml
+name: Run Zizmor
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  zizmor:
+    permissions:
+      contents: read
+      security-events: write
+    uses: joeckr/ci-templates/.github/workflows/zizmor.yml@main
+```
+
+---
+
 ## Local Development & Conventional Commits (`mise` & `prek`)
 
 This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool management, and [`prek`](https://github.com/j178/prek) (a fast Rust-based git hook runner configured via `prek.toml`) to enforce [Conventional Commits](https://www.conventionalcommits.org/) pre-commit.
