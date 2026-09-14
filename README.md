@@ -211,6 +211,7 @@ Reusable workflow to lint, package, and push Helm charts to GitHub Container Reg
 - **Helm OCI Packaging**: Packages charts and pushes them directly to GHCR via native OCI registry support (`oci://ghcr.io/...`).
 - **GHCR Owner Lowercasing**: Automatically converts username/org namespace to lowercase to prevent GHCR rejected name errors.
 - **Smart Chart Discovery**: Automatically scans a directory (default `chart`) for charts, or targets a specific chart via `chart-path`.
+- **External Helm Repositories**: Supports adding external Helm repositories (e.g. Longhorn, Bitnami) via `helm-repos` prior to dependency resolution.
 - **Conditional Dependency Build**: Checks for `Chart.lock` or `dependencies:` in `Chart.yaml` before running `helm dependency build`.
 - **Linting & Safety**: Runs `helm lint` by default; automatically operates in dry-run mode on pull requests or when `dry-run: true`.
 - **Step Summary**: Emits a markdown table into the GitHub Actions run summary detailing packaged charts and destination OCI URLs.
@@ -237,6 +238,9 @@ jobs:
       charts-dir: 'chart'
       # Optional: specify a single chart instead of scanning
       # chart-path: 'chart/my-app'
+      # Optional: add external Helm repositories for chart dependencies
+      # helm-repos: |
+      #   longhorn https://charts.longhorn.io
       # Optional: test without pushing
       # dry-run: false
     secrets:
@@ -250,8 +254,9 @@ jobs:
 | `charts-dir` | Directory containing Helm charts relative to repo root | No | `'chart'` |
 | `registry` | Container registry to push to | No | `'ghcr.io'` |
 | `org` | Organization or user owning the registry namespace | No | `${{ github.repository_owner }}` |
-| `subpath` | Optional subpath under registry namespace | No | `''` |
+| `subpath` | Optional subpath under registry namespace | No | `'charts'` |
 | `helm-version` | Helm version to install | No | `'latest'` |
+| `helm-repos` | Optional newline-separated list of Helm repositories to add before dependency build | No | `''` |
 | `version` | Optional version override for chart packaging | No | `''` |
 | `app-version` | Optional appVersion override for chart packaging | No | `''` |
 | `dependency-update` | Run `helm dependency build` prior to packaging | No | `true` |
