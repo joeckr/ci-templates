@@ -1,0 +1,72 @@
+name: ShellCheck
+
+on:
+  workflow_call:
+    inputs:
+      scandir:
+        description: 'Directory to be searched for files.'
+        required: false
+        type: string
+        default: '.'
+      format:
+        description: 'Output format (checkstyle, diff, gcc, json, json1, quiet, tty)'
+        required: false
+        type: string
+        default: 'gcc'
+      severity:
+        description: 'Minimum severity of errors to consider. Options: [error, warning, info, style]'
+        required: false
+        type: string
+        default: ''
+      check_together:
+        description: 'Run shellcheck on _all_ files at once, instead of one at a time'
+        required: false
+        type: string
+        default: ''
+      version:
+        description: 'Specify a concrete version of ShellCheck to use'
+        required: false
+        type: string
+        default: 'stable'
+      additional_files:
+        description: 'A space separated list of additional filename to check'
+        required: false
+        type: string
+        default: ''
+      ignore_paths:
+        description: 'Paths to ignore when running ShellCheck'
+        required: false
+        type: string
+        default: ''
+      ignore_names:
+        description: 'Names to ignore when running ShellCheck'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: Run ShellCheck
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # v2.0.0
+        with:
+          scandir: ${{ inputs.scandir }}
+          format: ${{ inputs.format }}
+          severity: ${{ inputs.severity }}
+          check_together: ${{ inputs.check_together }}
+          version: ${{ inputs.version }}
+          additional_files: ${{ inputs.additional_files }}
+          ignore_paths: ${{ inputs.ignore_paths }}
+          ignore_names: ${{ inputs.ignore_names }}
