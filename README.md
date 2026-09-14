@@ -356,6 +356,48 @@ jobs:
 
 ---
 
+### `shellcheck.yml`
+Reusable workflow to run ShellCheck for shell script static analysis.
+
+#### Features
+- **Shell Script Linting**: Uses `ludeeus/action-shellcheck` to analyze shell scripts and identify syntax issues, semantic problems, and common pitfalls.
+- **Configurable Scanning**: Customize the directory to scan, severity threshold, and files to ignore.
+
+#### Example Usage
+
+```yaml
+name: Run ShellCheck
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  shellcheck:
+    permissions:
+      contents: read
+    uses: joeckr/ci-templates/.github/workflows/shellcheck.yml@main
+    # with:
+    #   scandir: '.'
+    #   severity: 'style'
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `scandir` | Directory to be searched for files | No | `'.'` |
+| `format` | Output format (checkstyle, diff, gcc, json, json1, quiet, tty) | No | `'gcc'` |
+| `severity` | Minimum severity of errors to consider (error, warning, info, style) | No | `''` |
+| `check_together` | Run shellcheck on all files at once | No | `''` |
+| `version` | Specify a concrete version of ShellCheck to use | No | `'stable'` |
+| `additional_files` | A space separated list of additional filename to check | No | `''` |
+| `ignore_paths` | Paths to ignore when running ShellCheck | No | `''` |
+| `ignore_names` | Names to ignore when running ShellCheck | No | `''` |
+
+---
+
 ### `zizmor.yml`
 Reusable workflow to run Zizmor for workflow security linting.
 
