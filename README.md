@@ -431,9 +431,9 @@ jobs:
 
 ---
 
-## Local Development & Conventional Commits (`mise` & `prek`)
+## Local Development & Conventional Commits (`mise` & `hk`)
 
-This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool management, and [`prek`](https://github.com/j178/prek) (a fast Rust-based git hook runner configured via `prek.toml`) to enforce [Conventional Commits](https://www.conventionalcommits.org/) pre-commit.
+This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool management, and [`hk`](https://hk.jdx.dev/) (a fast git hook runner configured via `hk.pkl`) to enforce [Conventional Commits](https://www.conventionalcommits.org/) pre-commit.
 
 ### Setup
 
@@ -446,17 +446,17 @@ This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool ma
    ```bash
    mise run hooks:install
    # or directly:
-   prek install
+   hk install
    ```
 
 3. **Run hooks manually on all files**:
    ```bash
    mise run hooks:run
    # or directly:
-   prek run --all-files
+   hk run --all
    ```
 
-### Configured Hooks (`prek.toml`)
+### Configured Hooks (`hk.pkl`)
 - **Conventional Commits**: Validates commit messages via `compilerla/conventional-pre-commit` on `commit-msg`.
 - **Branch Protection**: Prevents direct commits to `main` via `no-commit-to-branch` (enforcing feature branches and pull requests).
 - **Secret Detection**: Scans for leaked credentials via `gitleaks` on `pre-commit`.

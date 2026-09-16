@@ -1,11 +1,11 @@
 [tools]
 actionlint = "latest"
-prek = "latest"
+hk = "latest"
 
 [tasks."hooks:install"]
-description = "Install Git hooks using prek"
-run = "prek install --hook-type pre-commit --hook-type commit-msg"
+description = "Install Git hooks using hk"
+run = "hk install"
 
 [tasks."hooks:run"]
-description = "Run prek hooks across all files"
-run = "prek run --all-files"
+description = "Run hk hooks across all files"
+run = "hk run --all"
