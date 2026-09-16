@@ -1,0 +1,19 @@
+amends "package://github.com/jdx/hk/releases/download/v2.0.1/hk@2.0.1#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.0.1/hk@2.0.1#/Builtins.pkl"
+
+local linters = new Mapping {
+    ["conventional_commit"] = Builtins.check_conventional_commit
+    ["trailing_whitespace"] = Builtins.trailing_whitespace
+    ["newlines"] = Builtins.newlines
+    ["yamllint"] = Builtins.yamllint
+    ["taplo"] = Builtins.taplo
+    ["check_added_large_files"] = Builtins.check_added_large_files
+    ["no_commit_to_branch"] = Builtins.no_commit_to_branch {
+        args { "--branch"; "main" }
+    }
+    ["gitleaks"] = Builtins.gitleaks
+    ["actionlint"] = Builtins.actionlint
+    ["zizmor"] = Builtins.zizmor
+}
+
+steps = linters
