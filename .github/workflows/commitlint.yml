@@ -5,7 +5,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read # required to fetch PR metadata
+  pull-requests: read  # required to fetch PR metadata
 
 jobs:
   commitlint:
@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read # required to fetch PR metadata
+      pull-requests: read  # required to fetch PR metadata
     steps:
       - name: Checkout Code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -24,14 +24,26 @@ jobs:
       - name: Configure Fallback Commitlint Config
         id: config
         run: |
-          if [ ! -f "commitlint.config.mjs" ] && [ ! -f "commitlint.config.js" ] && [ ! -f "commitlint.config.cjs" ] && [ ! -f "commitlint.config.ts" ]; then
-            echo "export default { extends: ['@commitlint/config-conventional'], rules: { 'body-max-line-length': [0, 'always'], 'footer-max-line-length': [0, 'always'], 'header-max-length': [0, 'always'] } };" > .commitlint.fallback.mjs
+          if [ ! -f "commitlint.config.mjs" ] && \
+             [ ! -f "commitlint.config.js" ] && \
+             [ ! -f "commitlint.config.cjs" ] && \
+             [ ! -f "commitlint.config.ts" ]; then
+            cat << 'EOF' > .commitlint.fallback.mjs
+          export default {
+            extends: ['@commitlint/config-conventional'],
+            rules: {
+              'body-max-line-length': [0, 'always'],
+              'footer-max-line-length': [0, 'always'],
+              'header-max-length': [0, 'always']
+            }
+          };
+          EOF
             echo "CONFIG_FILE=.commitlint.fallback.mjs" >> "$GITHUB_ENV"
           else
             echo "CONFIG_FILE=" >> "$GITHUB_ENV"
           fi
 
       - name: Run Commitlint
-        uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6
+        uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed  # v6
         with:
           configFile: ${{ env.CONFIG_FILE }}

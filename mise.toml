@@ -1,11 +1,22 @@
 [tools]
+betterleaks = "latest"
 actionlint = "latest"
+shellcheck = "latest"
+zizmor = "latest"
 hk = "latest"
+pkl = "latest"
+tombi = "latest"
+yamllint = "latest"
 
-[tasks."hooks:install"]
-description = "Install Git hooks using hk"
-run = "hk install"
+[tasks.install]
+description = "Install tools, hook up hooks, and prepare environment"
+run = """
+hk install --mise
+"""
 
-[tasks."hooks:run"]
-description = "Run hk hooks across all files"
-run = "hk run --all"
+[tasks.hk]
+description = "Run hk checks on all files"
+alias = "check"
+run = """
+hk check --all
+"""

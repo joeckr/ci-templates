@@ -20,9 +20,9 @@ name: Run Actionlint
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   actionlint:
@@ -93,10 +93,10 @@ name: Build and Push Container Images
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [main]
+    tags: ['v*']
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
@@ -154,7 +154,7 @@ name: Run Commitlint
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -178,9 +178,9 @@ name: Gitleaks Scan
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   gitleaks:
@@ -204,9 +204,9 @@ name: Run Hadolint
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   hadolint:
@@ -248,10 +248,10 @@ name: Publish Helm Chart
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [main]
+    tags: ['v*']
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   helm:
@@ -313,7 +313,7 @@ name: Release
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   release:
@@ -330,7 +330,7 @@ name: Release & Publish Helm Chart
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   semver:
@@ -338,7 +338,7 @@ jobs:
       contents: write
     uses: joeckr/ci-templates/.github/workflows/semantic.yml@main
     with:
-      chart-path: 'chart/my-app' # Automatically bumps version & appVersion in Chart.yaml
+      chart-path: 'chart/my-app'  # Automatically bumps version & appVersion in Chart.yaml
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -400,9 +400,9 @@ name: Run ShellCheck
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   shellcheck:
@@ -442,9 +442,9 @@ name: Run Zizmor
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   zizmor:
@@ -457,8 +457,9 @@ jobs:
 ---
 
 ## Local Development & Conventional Commits (`mise` & `hk`)
+## Local Development & Conventional Commits (`mise` & `hk`)
 
-This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool management, and [`hk`](https://hk.jdx.dev/) (a fast git hook runner configured via `hk.pkl`) to enforce [Conventional Commits](https://www.conventionalcommits.org/) pre-commit.
+This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool management, and [`hk`](https://github.com/jdx/hk) (a fast Git hook and check runner configured via `hk.pkl`) to enforce [Conventional Commits](https://www.conventionalcommits.org/) and code quality standards.
 
 ### Setup
 
@@ -469,26 +470,32 @@ This repository uses [`mise`](https://mise.jdx.dev/) for environment and tool ma
 
 2. **Install git hooks**:
    ```bash
-   mise run hooks:install
+   mise run install
    # or directly:
-   hk install
+   hk install --mise
    ```
 
-3. **Run hooks manually on all files**:
+3. **Run checks manually on all files**:
    ```bash
-   mise run hooks:run
+   mise run hk
+   # or using the task alias:
+   mise run check
    # or directly:
-   hk run --all
+   hk check --all
    ```
 
-### Configured Hooks (`hk.pkl`)
-- **Conventional Commits**: Validates commit messages via `compilerla/conventional-pre-commit` on `commit-msg`.
+### Configured Checks (`hk.pkl`)
+- **Conventional Commits**: Validates commit messages via `check_conventional_commit` on `commit-msg`.
 - **Branch Protection**: Prevents direct commits to `main` via `no-commit-to-branch` (enforcing feature branches and pull requests).
-- **Secret Detection**: Scans for leaked credentials via `gitleaks` on `pre-commit`.
-- **YAML Validation**: Validates YAML syntax across workflows and charts via `check-yaml` (`--allow-multiple-documents`).
-- **Workflow Linting**: Lints GitHub Actions workflows for syntax and semantics via `actionlint`.
-- **Security Linting**: Audits GitHub Actions workflows for security vulnerabilities via `zizmor`.
-- **Code Hygiene**: Trims trailing whitespace and ensures clean file endings.
+- **Secret Detection**: Scans for leaked credentials and secrets via `betterleaks`.
+- **Workflow Linting**: Static analysis of GitHub Actions workflows via `actionlint`.
+- **Security Auditing**: Audits GitHub Actions workflows for security vulnerabilities via `zizmor`.
+- **Shell Script Linting**: Analyzes shell scripts for issues and best practices via `shellcheck`.
+- **YAML Linting**: Lints YAML files using `yamllint` in strict mode (with line length and formatting rules).
+- **TOML Validation & Formatting**: Checks and formats TOML files via `tombi` and `tombi-format`.
+- **PKL Validation**: Validates PKL configuration files via `pkl`.
+- **JSON & XML Validation**: Verifies JSON and XML structure via `jq` and `xmllint`.
+- **Code Hygiene**: Trims trailing whitespace, enforces clean newlines, forbids submodules, and prevents committing large files or merge conflict markers.
 
 ### Conventional Commits Format
 Commits must follow the Conventional Commits specification:
@@ -496,3 +503,13 @@ Commits must follow the Conventional Commits specification:
 - `fix: resolve issue` -> triggers **patch** release
 - `feat!: breaking redesign` or footer `BREAKING CHANGE:` -> triggers **major** release
 - `chore:`, `docs:`, `ci:`, `test:`, `refactor:` -> maintenance changes
+
+## Support
+
+If you find this project useful, consider supporting my work on [Ko-fi](https://ko-fi.com/joeckr):
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/joeckr)
+
+## License
+
+Please refer to the `LICENSE` file for details.
