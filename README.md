@@ -122,7 +122,7 @@ Reusable matrix container build workflow for building and pushing custom multi-p
 
 #### Features
 - **Dynamic Matrix from JSON**: Automatically parses a `versions.json` configuration file into a GitHub Actions build matrix.
-- **Custom Base Image & Version Mapping**: Passes `VERSION` and `IMAGE` (`base-image`) as build arguments into Dockerfile builds for customized multi-image pipelines.
+- **Custom Base Image & Version Mapping**: Passes `VERSION`, `IMAGE` (`base-image`), and `TAG` (`base-tag`) as build arguments into Dockerfile builds for customized multi-image pipelines.
 - **Multi-Platform Support**: Sets up QEMU and Docker Buildx to build for multiple architectures (default: `linux/amd64,linux/arm64`).
 - **Flexible Tagging**: Automatically tags images using version (`<image>:<version>`), and optionally `:latest` and `:lts` flags.
 - **Vulnerability Scanning (Trivy)**: Non-blocking security scanning on pull requests and pushes, surfacing findings in the GitHub Security tab via SARIF and in the Actions Job Summary table.
@@ -135,13 +135,15 @@ Reusable matrix container build workflow for building and pushing custom multi-p
 [
   {
     "version": "1.0.0",
-    "base-image": "alpine:3.20",
+    "base-image": "alpine",
+    "base-tag": "3.20",
     "latest": true,
     "lts": false
   },
   {
     "version": "2.0.0",
-    "base-image": "alpine:3.21",
+    "base-image": "alpine",
+    "base-tag": "3.21",
     "latest": false,
     "lts": true
   }
