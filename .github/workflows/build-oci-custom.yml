@@ -143,6 +143,7 @@ jobs:
         env:
           VERSION: ${{ matrix.version.version }}
           BASE: ${{ matrix.version.base-image }}
+          TAG: ${{ matrix.version.base-tag }}
           IS_LATEST: ${{ matrix.version.latest }}
           IS_LTS: ${{ matrix.version.lts }}
           REGISTRY: ${{ inputs.registry }}
@@ -180,6 +181,7 @@ jobs:
           build-args: |
               VERSION=${{ matrix.version.version }}
               IMAGE=${{ matrix.version.base-image }}
+              TAG=${{ matrix.version.base-tag }}
           platforms: linux/amd64
           load: true
           tags: ${{ steps.tags.outputs.scan-tag }}
@@ -272,6 +274,7 @@ jobs:
           build-args: |
               VERSION=${{ matrix.version.version }}
               IMAGE=${{ matrix.version.base-image }}
+              TAG=${{ matrix.version.base-tag }}
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' && !inputs.dry-run }}
           tags: ${{ steps.tags.outputs.tags }}
