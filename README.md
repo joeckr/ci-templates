@@ -31,6 +31,31 @@ jobs:
 
 ---
 
+### `betterleaks.yml`
+Reusable workflow to run Betterleaks for secret detection.
+
+#### Features
+- **Config Detection**: Automatically checks for the presence of a `.betterleaks.toml` file in the root of the repository. If found, it uses the provided configuration; otherwise, it runs a full scan with default settings.
+- **Secret Scanning**: Downloads the latest Betterleaks binary to explicitly execute full repository scans to detect hardcoded secrets, passwords, and API keys.
+
+#### Example Usage
+
+```yaml
+name: Betterleaks Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  betterleaks:
+    uses: joeckr/ci-templates/.github/workflows/betterleaks.yml@main
+```
+
+---
+
 ### `build-oci-modified.yml`
 Reusable matrix container build workflow for building and pushing multi-platform container images based on upstream versions.
 

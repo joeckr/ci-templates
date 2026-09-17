@@ -1,0 +1,43 @@
+name: Betterleaks Scan
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  betterleaks:
+    name: Run Betterleaks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Betterleaks
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/betterleaks/betterleaks/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          VERSION=${VERSION#v}
+          wget -qO- "https://github.com/betterleaks/betterleaks/releases/download/v${VERSION}/betterleaks_${VERSION}_linux_x64.tar.gz" | sudo tar -xz -C /usr/local/bin betterleaks
+
+      - name: Check for .betterleaks.toml
+        id: config
+        run: |
+          if [ -f ".betterleaks.toml" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Betterleaks with config
+        if: steps.config.outputs.exists == 'true'
+        run: betterleaks dir . --config .betterleaks.toml --verbose
+
+      - name: Run Betterleaks without config (Full scan)
+        if: steps.config.outputs.exists == 'false'
+        run: betterleaks dir . --verbose
