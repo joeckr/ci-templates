@@ -56,6 +56,67 @@ jobs:
 
 ---
 
+### `build-oci.yml`
+Reusable container build workflow for building and pushing multi-platform container images to GitHub Container Registry (GHCR).
+
+#### Features
+- **Standard Image Building**: Provides a straightforward template to build and push an OCI image to GHCR.
+- **Multi-Platform Support**: Sets up QEMU and Docker Buildx to build for multiple architectures (default: `linux/amd64,linux/arm64`).
+- **Semantic Version Integration**: Designed to be chained with `semantic.yml` to automatically tag images based on semantic version bumps.
+- **Buildx Caching**: Leverages GitHub Actions cache (`type=gha`) for fast incremental builds.
+- **Dry-Run & PR Safety**: Skips image push on pull requests or when `dry-run: true`.
+
+#### Example Usage
+
+```yaml
+name: Build and Push Container Image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  semver:
+    permissions:
+      contents: write
+    uses: joeckr/ci-templates/.github/workflows/semantic.yml@main
+    secrets:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: semver
+    if: needs.semver.outputs.released == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: joeckr/ci-templates/.github/workflows/build-oci.yml@main
+    with:
+      image: 'my-app'
+      version: ${{ needs.semver.outputs.version }}
+      # Optional configurations:
+      # platforms: 'linux/amd64,linux/arm64'
+      # dockerfile: 'Dockerfile'
+      # context: '.'
+      # registry: 'ghcr.io'
+      # dry-run: false
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `image` | Name of the image to build | **Yes** | — |
+| `version` | Version tag for the image | **Yes** | — |
+| `org` | Name of the org or individual user | No | `${{ github.actor }}` |
+| `context` | Build context path | No | `'.'` |
+| `dockerfile` | Path to Dockerfile relative to context | No | `'Dockerfile'` |
+| `platforms` | Target container platforms | No | `'linux/amd64,linux/arm64'` |
+| `registry` | Container registry to push to | No | `'ghcr.io'` |
+| `dry-run` | Build images on PR or test without pushing | No | `false` |
+
+---
+
 ### `build-oci-modified.yml`
 Reusable matrix container build workflow for building and pushing multi-platform container images based on upstream versions.
 
