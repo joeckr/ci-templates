@@ -34,7 +34,9 @@ on:
         type: string
         default: 'latest'
       helm-repos:
-        description: 'Optional newline-separated list of Helm repositories to add before dependency build (e.g. "longhorn https://charts.longhorn.io" or "longhorn=https://charts.longhorn.io")'
+        description: >-
+          Optional newline-separated list of Helm repositories to add before dependency
+          build (e.g. "longhorn https://charts.longhorn.io" or "longhorn=https://charts.longhorn.io")
         required: false
         type: string
         default: ''
@@ -81,19 +83,19 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # required to publish OCI Helm charts to GitHub Packages (GHCR)
+      packages: write  # required to publish OCI Helm charts to GitHub Packages (GHCR)
     outputs:
       packages: ${{ steps.package.outputs.packages }}
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           repository: ${{ github.repository }}
           ref: ${{ github.ref }}
           persist-credentials: false
 
       - name: Set up Helm
-        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4  # v4
         with:
           version: ${{ inputs.helm-version }}
 
