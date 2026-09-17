@@ -1,4 +1,4 @@
-name: Reusable Matrix Container Build for modified Upstream Images
+name: Reusable Matrix Container Build for custom Images
 
 on:
   workflow_call:
@@ -141,8 +141,8 @@ jobs:
       - name: Determine Image Tag
         id: tags
         env:
-          MAJOR: ${{ matrix.version.major }}
-          UPSTREAM: ${{ matrix.version.upstream }}
+          VERSION: ${{ matrix.version.version }}
+          BASE: ${{ matrix.version.base-image }}
           IS_LATEST: ${{ matrix.version.latest }}
           IS_LTS: ${{ matrix.version.lts }}
           REGISTRY: ${{ inputs.registry }}
@@ -151,12 +151,12 @@ jobs:
         run: |
           REPO="${REGISTRY}/${ORG}/${IMAGE}"
 
-          if [ -z "$MAJOR" ]; then
-            echo "ERROR: matrix.version.major is not set"
+          if [ -z "$VERSION" ]; then
+            echo "ERROR: matrix.version.version is not set"
             exit 1
           fi
 
-          TAG_LIST="${REPO}:${MAJOR},${REPO}:${UPSTREAM}"
+          TAG_LIST="${REPO}:${VERSION}"
 
           if [ "$IS_LATEST" = "true" ]; then
             TAG_LIST="${TAG_LIST},${REPO}:latest"
@@ -166,7 +166,7 @@ jobs:
             TAG_LIST="${TAG_LIST},${REPO}:lts"
           fi
 
-          SCAN_TAG="local/${IMAGE}:${UPSTREAM}"
+          SCAN_TAG="local/${IMAGE}:${VERSION}"
 
           echo "tags=$TAG_LIST" >> "$GITHUB_OUTPUT"
           echo "scan-tag=$SCAN_TAG" >> "$GITHUB_OUTPUT"
@@ -178,7 +178,8 @@ jobs:
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           build-args: |
-              VERSION=${{ matrix.version.upstream }}
+              VERSION=${{ matrix.version.version }}
+              IMAGE=${{ matrix.version.base-image }}
           platforms: linux/amd64
           load: true
           tags: ${{ steps.tags.outputs.scan-tag }}
@@ -202,7 +203,7 @@ jobs:
         continue-on-error: true
         with:
           sarif_file: 'trivy-results.sarif'
-          category: 'trivy-${{ inputs.image }}-${{ matrix.version.upstream }}'
+          category: 'trivy-${{ inputs.image }}-${{ matrix.version.version }}'
 
       - name: Run Trivy Vulnerability Scanner (Table)
         if: inputs.enable-trivy
@@ -222,29 +223,29 @@ jobs:
         with:
           image-ref: ${{ steps.tags.outputs.scan-tag }}
           format: ${{ inputs.sbom-format }}
-          output: 'sbom-${{ matrix.version.upstream }}.json'
+          output: 'sbom-${{ matrix.version.version }}.json'
           skip-setup-trivy: true
 
       - name: Upload SBOM Artifact
         if: inputs.enable-sbom
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
-          name: sbom-${{ inputs.image }}-${{ matrix.version.upstream }}
-          path: 'sbom-${{ matrix.version.upstream }}.json'
+          name: sbom-${{ inputs.image }}-${{ matrix.version.version }}
+          path: 'sbom-${{ matrix.version.version }}.json'
           if-no-files-found: warn
 
       - name: Publish Security & SBOM Summary
         if: (inputs.enable-trivy || inputs.enable-sbom) && always()
         env:
           IMAGE: ${{ inputs.image }}
-          UPSTREAM: ${{ matrix.version.upstream }}
+          VERSION: ${{ matrix.version.version }}
           TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
           TRIVY_IGNORE_UNFIXED: ${{ inputs.trivy-ignore-unfixed }}
           SBOM_FORMAT: ${{ inputs.sbom-format }}
         run: |
           if [ -f trivy-table.txt ] && [ -s trivy-table.txt ]; then
             {
-              echo "### 🛡️ Trivy Vulnerability Scan: \`${IMAGE}:${UPSTREAM}\`"
+              echo "### 🛡️ Trivy Vulnerability Scan: \`${IMAGE}:${VERSION}\`"
               echo "**Severity filter:** \`${TRIVY_SEVERITY}\` | **Ignore unfixed:** \`${TRIVY_IGNORE_UNFIXED}\`"
               echo ""
               echo "<details><summary>Click to view vulnerability findings</summary>"
@@ -256,10 +257,10 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [ -f "sbom-${UPSTREAM}.json" ]; then
+          if [ -f "sbom-${VERSION}.json" ]; then
             {
               echo ""
-              echo "📦 **SBOM Generated:** \`sbom-${UPSTREAM}.json\` (Format: \`${SBOM_FORMAT}\`)"
+              echo "📦 **SBOM Generated:** \`sbom-${VERSION}.json\` (Format: \`${SBOM_FORMAT}\`)"
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -269,7 +270,8 @@ jobs:
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           build-args: |
-              VERSION=${{ matrix.version.upstream }}
+              VERSION=${{ matrix.version.version }}
+              IMAGE=${{ matrix.version.base-image }}
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' && !inputs.dry-run }}
           tags: ${{ steps.tags.outputs.tags }}
