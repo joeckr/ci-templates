@@ -15,7 +15,7 @@ on:
         description: 'Name of the org/individual to build'
         required: false
         type: string
-        default: ${{ github.actor }}
+        default: ${{ github.repository_owner }}
       context:
         description: 'Build context'
         required: false
