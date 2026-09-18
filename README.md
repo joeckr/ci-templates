@@ -576,6 +576,31 @@ jobs:
 
 ---
 
+### `uv-audit.yml`
+Reusable workflow to run `uv audit` for identifying known vulnerabilities in dependencies.
+
+#### Features
+- **Vulnerability Scanning**: Uses `uv audit` to scan project dependencies for known vulnerabilities.
+- **Fast Execution**: Uses `astral-sh/setup-uv` to quickly install `uv` and enable caching.
+
+#### Example Usage
+
+```yaml
+name: Run UV Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  uv-audit:
+    uses: joeckr/ci-templates/.github/workflows/uv-audit.yml@main
+```
+
+---
+
 ### `uv-lock.yml`
 Reusable workflow to verify the integrity of the `uv.lock` file using `uv lock --check`.
 
