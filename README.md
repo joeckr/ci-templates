@@ -576,6 +576,45 @@ jobs:
 
 ---
 
+### `trivy-fs.yml`
+Reusable workflow to run Trivy for filesystem vulnerability scanning.
+
+#### Features
+- **Filesystem Scanning**: Uses `aquasecurity/trivy-action` to scan the repository filesystem for vulnerabilities and misconfigurations.
+- **GitHub Advanced Security Integration**: Uploads SARIF results to surface findings in the GitHub Security tab.
+- **Job Summary**: Emits a markdown table into the GitHub Actions run summary detailing the vulnerabilities found.
+
+#### Example Usage
+
+```yaml
+name: Trivy FS Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  trivy:
+    permissions:
+      contents: read
+      security-events: write
+    uses: joeckr/ci-templates/.github/workflows/trivy-fs.yml@main
+    with:
+      # Optional configurations:
+      # trivy-severity: 'CRITICAL,HIGH'
+      # trivy-ignore-unfixed: false
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `trivy-severity` | Vulnerability severities to scan for (comma-separated) | No | `'CRITICAL,HIGH'` |
+| `trivy-ignore-unfixed` | Ignore vulnerabilities without an available fix | No | `false` |
+
+---
+
 ### `uv-audit.yml`
 Reusable workflow to run `uv audit` for identifying known vulnerabilities in dependencies.
 

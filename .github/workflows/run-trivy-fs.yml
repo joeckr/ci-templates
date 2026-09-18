@@ -1,0 +1,14 @@
+name: Trivy FS Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  trivy:
+    permissions:
+      contents: read
+      security-events: write
+    uses: $/.github/workflows/trivy-fs.yml
