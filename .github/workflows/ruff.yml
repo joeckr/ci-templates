@@ -1,0 +1,36 @@
+name: Ruff
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'The version of Ruff to install'
+        required: false
+        type: string
+        default: ''
+      args:
+        description: 'The arguments to pass to the ruff command'
+        required: false
+        type: string
+        default: 'check'
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    name: Run Ruff
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+
+      - name: Run Ruff
+        uses: astral-sh/ruff-action@4919ec5cf1f49eff0871dbcea0da843445b837e6  # v3.6.1
+        with:
+          version: ${{ inputs.version }}
+          args: ${{ inputs.args }}

@@ -443,6 +443,43 @@ jobs:
 
 ---
 
+### `ruff.yml`
+Reusable workflow to run Ruff for linting Python code.
+
+#### Features
+- **Python Linting**: Uses `astral-sh/ruff-action` to lint Python projects with the extremely fast Ruff linter.
+- **Configurable**: Easily pass a specific Ruff version or additional arguments to customize the linting behavior.
+
+#### Example Usage
+
+```yaml
+name: Run Ruff
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ruff:
+    permissions:
+      contents: read
+    uses: joeckr/ci-templates/.github/workflows/ruff.yml@main
+    with:
+      # Optional configurations:
+      # version: '0.6.5'
+      # args: 'check --select I'
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `version` | The version of Ruff to install | No | `''` |
+| `args` | The arguments to pass to the ruff command | No | `'check'` |
+
+---
+
 ### `semantic.yml`
 Reusable workflow for automated Semantic Versioning (SemVer), Conventional Commits analysis, Helm chart metadata synchronization, and GitHub Releases.
 
