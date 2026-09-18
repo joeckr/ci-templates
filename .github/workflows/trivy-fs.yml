@@ -1,0 +1,81 @@
+name: Trivy FS Scan
+
+on:
+  workflow_call:
+    inputs:
+      trivy-severity:
+        description: 'Vulnerability severities to scan for'
+        required: false
+        type: string
+        default: 'CRITICAL,HIGH'
+      trivy-ignore-unfixed:
+        description: 'Ignore vulnerabilities without an available fix'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  trivy:
+    name: Run Trivy FS Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # required to upload SARIF results to GitHub Advanced Security
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+
+      - name: Run Trivy Vulnerability Scanner (SARIF)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: ${{ inputs.trivy-severity }}
+          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+
+      - name: Upload Trivy SARIF Report
+        if: hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@ed1a0fa18ac745d017ca370dd4ef08bba3b4f504  # v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'trivy-fs'
+
+      - name: Run Trivy Vulnerability Scanner (Table)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          output: 'trivy-table.txt'
+          severity: ${{ inputs.trivy-severity }}
+          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+          exit-code: '0'
+          skip-setup-trivy: true
+
+      - name: Add Job Summary
+        if: always()
+        env:
+          TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
+          TRIVY_IGNORE_UNFIXED: ${{ inputs.trivy-ignore-unfixed }}
+        run: |
+          {
+            echo "## 🛡️ Trivy FS Vulnerability Scan"
+            echo "- **Severities**: \`${TRIVY_SEVERITY}\`"
+            echo "- **Ignore Unfixed**: \`${TRIVY_IGNORE_UNFIXED}\`"
+            echo ""
+
+            if [ -f trivy-table.txt ] && [ -s trivy-table.txt ]; then
+              echo '```'
+              cat trivy-table.txt
+              echo '```'
+            else
+              echo "✅ No vulnerabilities found matching the criteria."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
