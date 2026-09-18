@@ -2,6 +2,12 @@ name: UV Audit
 
 on:
   workflow_call:
+    inputs:
+      working-directory:
+        description: 'Working directory for the uv audit'
+        required: false
+        type: string
+        default: '.'
 
 permissions:
   contents: read
@@ -19,10 +25,12 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4  # v10.1.0
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
+          working-directory: ${{ inputs.working-directory }}
 
       - name: Run uv audit
+        working-directory: ${{ inputs.working-directory }}
         run: uv audit

@@ -753,6 +753,7 @@ Reusable workflow to run `uv audit` for identifying known vulnerabilities in dep
 #### Features
 - **Vulnerability Scanning**: Uses `uv audit` to scan project dependencies for known vulnerabilities.
 - **Fast Execution**: Uses `astral-sh/setup-uv` to quickly install `uv` and enable caching.
+- **Configurable Directory**: Supports custom working directories for monorepos or subproject structures.
 
 #### Example Usage
 
@@ -767,8 +768,17 @@ on:
 
 jobs:
   uv-audit:
+    permissions:
+      contents: read
     uses: joeckr/ci-templates/.github/workflows/uv-audit.yml@main
+    # with:
+    #   working-directory: '.'
 ```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `working-directory` | Working directory for the uv audit | No | `'.'` |
 
 ---
 
@@ -778,6 +788,7 @@ Reusable workflow to verify the integrity of the `uv.lock` file using `uv lock -
 #### Features
 - **Lockfile Integrity**: Uses `uv` to ensure that the lockfile is up-to-date and consistent with the project's dependencies.
 - **Cache Support**: Leverages `astral-sh/setup-uv` for fast execution and caching of uv installations and environments.
+- **Configurable Directory**: Supports custom working directories for monorepos or subproject structures.
 
 #### Example Usage
 
@@ -792,8 +803,17 @@ on:
 
 jobs:
   uv-lock:
+    permissions:
+      contents: read
     uses: joeckr/ci-templates/.github/workflows/uv-lock.yml@main
+    # with:
+    #   working-directory: '.'
 ```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `working-directory` | Working directory for the uv lock check | No | `'.'` |
 
 ---
 

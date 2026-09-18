@@ -2,6 +2,12 @@ name: UV Lockfile Integrity Check
 
 on:
   workflow_call:
+    inputs:
+      working-directory:
+        description: 'Working directory for the uv lock check'
+        required: false
+        type: string
+        default: '.'
 
 permissions:
   contents: read
@@ -22,6 +28,8 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4  # v10.1.0
         with:
           enable-cache: true
+          working-directory: ${{ inputs.working-directory }}
 
       - name: Verify uv.lock
+        working-directory: ${{ inputs.working-directory }}
         run: uv lock --check
