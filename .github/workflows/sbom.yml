@@ -1,0 +1,61 @@
+name: SBOM Generation
+
+on:
+  workflow_call:
+    inputs:
+      image-ref:
+        description: 'Image reference to scan'
+        required: false
+        type: string
+        default: ''
+      scan-type:
+        description: 'Type of scan (e.g., fs, image)'
+        required: false
+        type: string
+        default: 'fs'
+      format:
+        description: 'SBOM format (e.g., cyclonedx, spdx-json, github)'
+        required: false
+        type: string
+        default: 'cyclonedx'
+      output:
+        description: 'Output file path for the SBOM'
+        required: false
+        type: string
+        default: 'sbom.json'
+      skip-setup-trivy:
+        description: 'Skip Trivy setup'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+
+      - name: Generate SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          image-ref: ${{ inputs.image-ref }}
+          scan-type: ${{ inputs.scan-type }}
+          format: ${{ inputs.format }}
+          output: ${{ inputs.output }}
+          skip-setup-trivy: ${{ inputs.skip-setup-trivy }}
+
+      - name: Upload SBOM Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: sbom
+          path: ${{ inputs.output }}
+          if-no-files-found: warn

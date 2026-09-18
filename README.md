@@ -443,6 +443,49 @@ jobs:
 
 ---
 
+### `sbom.yml`
+Reusable workflow to generate a Software Bill of Materials (SBOM) for a repository or container image.
+
+#### Features
+- **SBOM Generation**: Uses `aquasecurity/trivy-action` to generate an SBOM in various formats (e.g., CycloneDX, SPDX).
+- **Flexible Targets**: Can scan either the local filesystem (`scan-type: fs`) or a specified container image (`scan-type: image`).
+
+#### Example Usage
+
+```yaml
+name: Generate SBOM
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sbom:
+    permissions:
+      contents: read
+    uses: joeckr/ci-templates/.github/workflows/sbom.yml@main
+    with:
+      # Optional configurations:
+      # image-ref: ''
+      # scan-type: 'fs'
+      # format: 'cyclonedx'
+      # output: 'sbom.json'
+      # skip-setup-trivy: false
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `image-ref` | Image reference to scan | No | `''` |
+| `scan-type` | Type of scan (e.g., fs, image) | No | `'fs'` |
+| `format` | SBOM format (e.g., cyclonedx, spdx-json, github) | No | `'cyclonedx'` |
+| `output` | Output file path for the SBOM | No | `'sbom.json'` |
+| `skip-setup-trivy` | Skip Trivy setup | No | `false` |
+
+---
+
 ### `semantic.yml`
 Reusable workflow for automated Semantic Versioning (SemVer), Conventional Commits analysis, Helm chart metadata synchronization, and GitHub Releases.
 
