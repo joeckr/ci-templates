@@ -450,6 +450,7 @@ Reusable workflow to run Pytest with coverage and test reporting.
 - **Test Execution**: Runs `pytest` to execute Python tests.
 - **Coverage Reporting**: Generates test coverage reports and JUnit XML results.
 - **Pull Request Comments**: Automatically comments on pull requests with a detailed coverage report, test statistics, and badges (if enabled and on a pull request).
+- **Fast Dependency Installation (uv)**: Optionally uses `uv` for blazing-fast dependency installation, caching, and running tests. Supports `uv.lock`, `pyproject.toml`, and requirements files.
 - **Configurable Environment**: Supports specifying the Python version, working directory, requirements file, and extra pytest arguments.
 
 #### Example Usage
@@ -475,6 +476,7 @@ jobs:
     #   requirements-file: 'requirements-dev.txt'
     #   pytest-args: '--cov=src'
     #   coverage-comment: true
+    #   enable-uv: false
     # secrets:
     #   github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -487,6 +489,7 @@ jobs:
 | `requirements-file` | Path to requirements file | No | `'requirements.txt'` |
 | `pytest-args` | Arguments to pass to pytest | No | `'--cov=.'` |
 | `coverage-comment` | Whether to add a PR comment with coverage results | No | `true` |
+| `enable-uv` | Whether to use uv for dependency installation and running pytest | No | `false` |
 
 #### Secrets
 | Secret | Description | Required | Default |
