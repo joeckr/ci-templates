@@ -21,7 +21,12 @@ jobs:
 
       - name: Install Betterleaks
         run: |
-          VERSION=$(curl -s https://api.github.com/repos/betterleaks/betterleaks/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          VERSION=$(curl -s -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/betterleaks/betterleaks/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$VERSION" ]; then
+            VERSION=$(curl -s https://api.github.com/repos/betterleaks/betterleaks/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          fi
           VERSION=${VERSION#v}
           wget -qO- "https://github.com/betterleaks/betterleaks/releases/download/v${VERSION}/betterleaks_${VERSION}_linux_x64.tar.gz" | sudo tar -xz -C /usr/local/bin betterleaks
 

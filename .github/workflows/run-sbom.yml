@@ -1,0 +1,13 @@
+name: Run SBOM Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sbom:
+    permissions:
+      contents: read
+    uses: $/.github/workflows/sbom.yml

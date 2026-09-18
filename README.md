@@ -495,6 +495,86 @@ jobs:
 
 ---
 
+### `ruff.yml`
+Reusable workflow to run Ruff for linting Python code.
+
+#### Features
+- **Python Linting**: Uses `astral-sh/ruff-action` to lint Python projects with the extremely fast Ruff linter.
+- **Configurable**: Easily pass a specific Ruff version or additional arguments to customize the linting behavior.
+
+#### Example Usage
+
+```yaml
+name: Run Ruff
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ruff:
+    permissions:
+      contents: read
+    uses: joeckr/ci-templates/.github/workflows/ruff.yml@main
+    with:
+      # Optional configurations:
+      # version: '0.6.5'
+      # args: 'check --select I'
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `version` | The version of Ruff to install | No | `''` |
+| `args` | The arguments to pass to the ruff command | No | `'check'` |
+
+---
+
+### `sbom.yml`
+Reusable workflow to generate a Software Bill of Materials (SBOM) for a repository or container image.
+
+#### Features
+- **SBOM Generation**: Uses `aquasecurity/trivy-action` to generate an SBOM in various formats (e.g., CycloneDX, SPDX).
+- **Flexible Targets**: Can scan either the local filesystem (`scan-type: fs`) or a specified container image (`scan-type: image`).
+
+#### Example Usage
+
+```yaml
+name: Generate SBOM
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sbom:
+    permissions:
+      contents: read
+    uses: joeckr/ci-templates/.github/workflows/sbom.yml@main
+    with:
+      # Optional configurations:
+      # image-ref: ''
+      # scan-type: 'fs'
+      # format: 'cyclonedx'
+      # output: 'sbom.json'
+      # skip-setup-trivy: false
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `image-ref` | Image reference to scan | No | `''` |
+| `scan-type` | Type of scan (e.g., fs, image) | No | `'fs'` |
+| `format` | SBOM format (e.g., cyclonedx, spdx-json, github) | No | `'cyclonedx'` |
+| `output` | Output file path for the SBOM | No | `'sbom.json'` |
+| `skip-setup-trivy` | Skip Trivy setup | No | `false` |
+
+---
+
 ### `semantic.yml`
 Reusable workflow for automated Semantic Versioning (SemVer), Conventional Commits analysis, Helm chart metadata synchronization, and GitHub Releases.
 
@@ -625,6 +705,95 @@ jobs:
 | `additional_files` | A space separated list of additional filename to check | No | `''` |
 | `ignore_paths` | Paths to ignore when running ShellCheck | No | `''` |
 | `ignore_names` | Names to ignore when running ShellCheck | No | `''` |
+
+---
+
+### `trivy-fs.yml`
+Reusable workflow to run Trivy for filesystem vulnerability scanning.
+
+#### Features
+- **Filesystem Scanning**: Uses `aquasecurity/trivy-action` to scan the repository filesystem for vulnerabilities and misconfigurations.
+- **GitHub Advanced Security Integration**: Uploads SARIF results to surface findings in the GitHub Security tab.
+- **Job Summary**: Emits a markdown table into the GitHub Actions run summary detailing the vulnerabilities found.
+
+#### Example Usage
+
+```yaml
+name: Trivy FS Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  trivy:
+    permissions:
+      contents: read
+      security-events: write
+    uses: joeckr/ci-templates/.github/workflows/trivy-fs.yml@main
+    with:
+      # Optional configurations:
+      # trivy-severity: 'CRITICAL,HIGH'
+      # trivy-ignore-unfixed: false
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `trivy-severity` | Vulnerability severities to scan for (comma-separated) | No | `'CRITICAL,HIGH'` |
+| `trivy-ignore-unfixed` | Ignore vulnerabilities without an available fix | No | `false` |
+
+---
+
+### `uv-audit.yml`
+Reusable workflow to run `uv audit` for identifying known vulnerabilities in dependencies.
+
+#### Features
+- **Vulnerability Scanning**: Uses `uv audit` to scan project dependencies for known vulnerabilities.
+- **Fast Execution**: Uses `astral-sh/setup-uv` to quickly install `uv` and enable caching.
+
+#### Example Usage
+
+```yaml
+name: Run UV Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  uv-audit:
+    uses: joeckr/ci-templates/.github/workflows/uv-audit.yml@main
+```
+
+---
+
+### `uv-lock.yml`
+Reusable workflow to verify the integrity of the `uv.lock` file using `uv lock --check`.
+
+#### Features
+- **Lockfile Integrity**: Uses `uv` to ensure that the lockfile is up-to-date and consistent with the project's dependencies.
+- **Cache Support**: Leverages `astral-sh/setup-uv` for fast execution and caching of uv installations and environments.
+
+#### Example Usage
+
+```yaml
+name: UV Lockfile Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  uv-lock:
+    uses: joeckr/ci-templates/.github/workflows/uv-lock.yml@main
+```
 
 ---
 
