@@ -615,6 +615,56 @@ jobs:
 
 ---
 
+### `uv-audit.yml`
+Reusable workflow to run `uv audit` for identifying known vulnerabilities in dependencies.
+
+#### Features
+- **Vulnerability Scanning**: Uses `uv audit` to scan project dependencies for known vulnerabilities.
+- **Fast Execution**: Uses `astral-sh/setup-uv` to quickly install `uv` and enable caching.
+
+#### Example Usage
+
+```yaml
+name: Run UV Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  uv-audit:
+    uses: joeckr/ci-templates/.github/workflows/uv-audit.yml@main
+```
+
+---
+
+### `uv-lock.yml`
+Reusable workflow to verify the integrity of the `uv.lock` file using `uv lock --check`.
+
+#### Features
+- **Lockfile Integrity**: Uses `uv` to ensure that the lockfile is up-to-date and consistent with the project's dependencies.
+- **Cache Support**: Leverages `astral-sh/setup-uv` for fast execution and caching of uv installations and environments.
+
+#### Example Usage
+
+```yaml
+name: UV Lockfile Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  uv-lock:
+    uses: joeckr/ci-templates/.github/workflows/uv-lock.yml@main
+```
+
+---
+
 ### `zizmor.yml`
 Reusable workflow to run Zizmor for workflow security linting.
 
