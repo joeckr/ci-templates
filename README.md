@@ -443,6 +443,58 @@ jobs:
 
 ---
 
+### `pytest.yml`
+Reusable workflow to run Pytest with coverage and test reporting.
+
+#### Features
+- **Test Execution**: Runs `pytest` to execute Python tests.
+- **Coverage Reporting**: Generates test coverage reports and JUnit XML results.
+- **Pull Request Comments**: Automatically comments on pull requests with a detailed coverage report, test statistics, and badges (if enabled and on a pull request).
+- **Configurable Environment**: Supports specifying the Python version, working directory, requirements file, and extra pytest arguments.
+
+#### Example Usage
+
+```yaml
+name: Run Pytest
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    permissions:
+      contents: read
+      pull-requests: write  # Required to post coverage comments
+    uses: joeckr/ci-templates/.github/workflows/pytest.yml@main
+    # with:
+    #   python-version: '3.11'
+    #   working-directory: '.'
+    #   requirements-file: 'requirements-dev.txt'
+    #   pytest-args: '--cov=src'
+    #   coverage-comment: true
+    # secrets:
+    #   github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `python-version` | Python version to set up | No | `'3.x'` |
+| `working-directory` | Working directory for the pytest run | No | `'.'` |
+| `requirements-file` | Path to requirements file | No | `'requirements.txt'` |
+| `pytest-args` | Arguments to pass to pytest | No | `'--cov=.'` |
+| `coverage-comment` | Whether to add a PR comment with coverage results | No | `true` |
+
+#### Secrets
+| Secret | Description | Required | Default |
+| --- | --- | --- | --- |
+| `github-token` | GitHub token for adding coverage comments on PRs | No | — |
+
+---
+
 ### `ruff.yml`
 Reusable workflow to run Ruff for linting Python code.
 
