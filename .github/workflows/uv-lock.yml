@@ -1,0 +1,27 @@
+name: UV Lockfile Integrity Check
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  uv-lock:
+    name: Check uv lockfile integrity
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4  # v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Verify uv.lock
+        run: uv lock --check
