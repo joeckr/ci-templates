@@ -53,6 +53,11 @@ on:
         required: false
         type: boolean
         default: false
+      dependabot-semver:
+        description: 'Promote Dependabot release commits based on embedded update-type metadata (major, minor, patch)'
+        required: false
+        type: boolean
+        default: false
     secrets:
       github-token:
         description: 'Token for authenticating Git and GitHub API (defaults to GITHUB_TOKEN)'
@@ -139,6 +144,7 @@ jobs:
           TAG_PREFIX: ${{ inputs.tag-prefix }}
           INITIAL_VERSION: ${{ inputs.initial-version }}
           DRY_RUN: ${{ inputs.dry-run }}
+          DEPENDABOT_SEMVER: ${{ inputs.dependabot-semver }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           # Discover previous tag and version directly from Git tags
@@ -163,6 +169,29 @@ jobs:
             HAS_MAJOR=$(echo "$COMMIT_LOG" | grep -E -c '(BREAKING CHANGE|BREAKING|^[a-zA-Z]+(\([^\)]+\))?!:)' || true)
             HAS_MINOR=$(echo "$COMMIT_LOG" | grep -E -c '^feat(\([^\)]+\))?:' || true)
             HAS_PATCH=$(echo "$COMMIT_LOG" | grep -E -c '^(fix|perf)(\([^\)]+\))?:' || true)
+
+            if [ "$DEPENDABOT_SEMVER" = "true" ]; then
+              if [ "$PREV_TAG" != "none" ]; then
+                REV_RANGE="${PREV_TAG}..HEAD"
+              else
+                REV_RANGE="HEAD"
+              fi
+
+              while IFS= read -r sha; do
+                [ -z "$sha" ] && continue
+                SUBJECT=$(git log -1 --pretty=format:"%s" "$sha")
+                if echo "$SUBJECT" | grep -E -q '^(feat|fix|perf)(\([^\)]+\))?!?:'; then
+                  BODY=$(git log -1 --pretty=format:"%b" "$sha")
+                  if echo "$BODY" | grep -q 'update-type: version-update:semver-major'; then
+                    HAS_MAJOR=$((HAS_MAJOR + 1))
+                  elif echo "$BODY" | grep -q 'update-type: version-update:semver-minor'; then
+                    HAS_MINOR=$((HAS_MINOR + 1))
+                  elif echo "$BODY" | grep -q 'update-type: version-update:semver-patch'; then
+                    HAS_PATCH=$((HAS_PATCH + 1))
+                  fi
+                fi
+              done < <(git rev-list "$REV_RANGE")
+            fi
 
             if [ "$HAS_MAJOR" -gt 0 ]; then
               BUMP="major"
