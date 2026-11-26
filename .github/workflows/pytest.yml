@@ -50,19 +50,19 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38  # v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v5
         with:
           python-version: ${{ inputs.python-version }}
           cache: ${{ !inputs.enable-uv && 'pip' || '' }}
 
       - name: Setup uv
         if: ${{ inputs.enable-uv }}
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4  # v10.1.0
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d  # v10.4.0
         with:
           enable-cache: true
           working-directory: ${{ inputs.working-directory }}
@@ -110,7 +110,7 @@ jobs:
 
       - name: Pytest Coverage Comment
         if: ${{ always() && inputs.coverage-comment == true && github.event_name == 'pull_request' }}
-        uses: MishaKav/pytest-coverage-comment@637da55541a2c0e160cbe17c914b92c6a7a3ee67  # main
+        uses: MishaKav/pytest-coverage-comment@4cfb48edc8f875ac019afdcfd97c48d78ad2b723  # main
         with:
           pytest-coverage-path: ${{ inputs.working-directory }}/pytest-coverage.txt
           pytest-xml-coverage-path: ${{ inputs.working-directory }}/coverage.xml
