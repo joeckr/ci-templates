@@ -91,6 +91,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     uses: joeckr/ci-templates/.github/workflows/build-oci.yml@main
     with:
       image: 'my-app'
@@ -137,15 +139,25 @@ jobs:
 ---
 
 ### `dependabot-auto-merge.yml`
-Reusable workflow to automatically enable GitHub Auto-Merge on low-risk Dependabot pull requests (`semver-patch` and/or `github-actions` updates) once required status checks pass, leaving `minor` and `major` updates for manual review.
+Reusable workflow to automatically merge low-risk Dependabot pull requests (`semver-patch` and/or `github-actions` updates) once CI checks pass, leaving `minor` and `major` updates for manual review. Uses native GitHub auto-merge when branch protection rulesets are active, and safely waits for all sibling check runs to succeed when no blocking ruleset is configured.
 
 #### Example Usage
 ```yaml
+name: Dependabot Auto-Merge
+
+on:
+  pull_request_target:  # zizmor: ignore[dangerous-triggers] -- no PR checkout; gated to Dependabot
+
+permissions:
+  contents: read
+
 jobs:
   auto-merge:
+    if: github.event.pull_request.user.id == 49699333
     permissions:
       contents: write
       pull-requests: write
+      checks: read
     uses: joeckr/ci-templates/.github/workflows/dependabot-auto-merge.yml@main
     with:
       allow-patch: true
