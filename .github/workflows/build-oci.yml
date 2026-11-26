@@ -72,18 +72,45 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine Image Tags
-        id: tags
+      - name: Determine Image Tags and Labels
+        id: meta
         env:
           REGISTRY: ${{ inputs.registry }}
           ORG: ${{ inputs.org }}
           IMAGE: ${{ inputs.image }}
           VERSION: ${{ inputs.version }}
+          CONTEXT: ${{ inputs.context }}
+          DOCKERFILE: ${{ inputs.dockerfile }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
         run: |
           REPO="${REGISTRY}/${ORG}/${IMAGE}"
           TAG_LIST="${REPO}:${VERSION},${REPO}:latest"
-
           echo "tags=$TAG_LIST" >> "$GITHUB_OUTPUT"
+
+          DOCKERFILE_PATH="${CONTEXT%/}/${DOCKERFILE#./}"
+          BASE_IMAGE=""
+          if [ -f "$DOCKERFILE_PATH" ]; then
+            BASE_IMAGE=$(awk 'toupper($1) == "FROM" {
+              for (i = 2; i <= NF; i++) {
+                if ($i ~ /^--/) continue
+                img = $i
+                break
+              }
+            } END { print img }' "$DOCKERFILE_PATH")
+          fi
+
+          {
+            echo "labels<<EOF"
+            echo "org.opencontainers.image.source=${SERVER_URL}/${REPOSITORY}"
+            echo "org.opencontainers.image.version=${VERSION}"
+            echo "org.opencontainers.image.revision=${SHA}"
+            if [ -n "$BASE_IMAGE" ]; then
+              echo "org.opencontainers.image.base.name=${BASE_IMAGE}"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build & Push Image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
@@ -92,6 +119,7 @@ jobs:
           file: ${{ inputs.dockerfile }}
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' && !inputs.dry-run }}
-          tags: ${{ steps.tags.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
