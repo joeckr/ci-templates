@@ -1,153 +1,16 @@
-name: Reusable Dependabot Auto-Merge
+name: Dependabot Auto-Merge
 
 on:
-  workflow_call:
-    inputs:
-      allow-patch:
-        description: 'Auto-merge Dependabot semver-patch PRs once checks pass'
-        required: false
-        type: boolean
-        default: true
-      allow-ci:
-        description: 'Auto-merge Dependabot GitHub Actions (ci) PRs once checks pass'
-        required: false
-        type: boolean
-        default: true
-      merge-method:
-        description: 'Merge method: merge, squash, or rebase'
-        required: false
-        type: string
-        default: 'merge'
-      wait-timeout-seconds:
-        description: 'Max seconds to wait for CI checks on unprotected branches before giving up'
-        required: false
-        type: number
-        default: 600
+  pull_request_target:  # zizmor: ignore[dangerous-triggers] -- no PR checkout; gated to Dependabot
 
 permissions:
   contents: read
 
 jobs:
   auto-merge:
-    name: Dependabot Auto-Merge
-    if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
-      && github.event.pull_request.user.id == 49699333
-    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.id == 49699333
     permissions:
       contents: write
       pull-requests: write
       checks: read
-    steps:
-      - name: Fetch Dependabot Metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98  # v3.1.0
-
-      - name: Enable Auto-Merge for Low-Risk Updates
-        env:
-          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
-          PACKAGE_ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-          ALLOW_PATCH: ${{ inputs.allow-patch }}
-          ALLOW_CI: ${{ inputs.allow-ci }}
-          MERGE_METHOD: ${{ inputs.merge-method }}
-          WAIT_TIMEOUT: ${{ inputs.wait-timeout-seconds }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python3 - << 'PY'
-          import json
-          import os
-          import subprocess
-          import sys
-          import time
-
-          method = os.environ["MERGE_METHOD"]
-          if method not in ("merge", "squash", "rebase"):
-              print(f"ERROR: Invalid merge-method '{method}'. Expected merge, squash, or rebase.", file=sys.stderr)
-              sys.exit(1)
-
-          allow_patch = os.environ["ALLOW_PATCH"].lower() == "true"
-          allow_ci = os.environ["ALLOW_CI"].lower() == "true"
-          update_type = os.environ["UPDATE_TYPE"]
-          ecosystem = os.environ["PACKAGE_ECOSYSTEM"]
-          pr_url = os.environ["PR_URL"]
-          head_sha = os.environ["HEAD_SHA"]
-          repo = os.environ["REPO"]
-          run_id = os.environ["RUN_ID"]
-          timeout = int(float(os.environ["WAIT_TIMEOUT"]))
-
-          should_merge = (
-              (allow_patch and update_type == "version-update:semver-patch")
-              or (allow_ci and ecosystem == "github-actions")
-          )
-          if not should_merge:
-              print(f"Manual review required for {ecosystem} ({update_type}). Skipping auto-merge.")
-              sys.exit(0)
-
-          # Try native GitHub auto-merge first (works when branch protection / required checks are configured)
-          print(f"Enabling auto-merge (--{method}) for {ecosystem} ({update_type})...")
-          res = subprocess.run(
-              ["gh", "pr", "merge", "--auto", f"--{method}", pr_url],
-              capture_output=True,
-              text=True,
-          )
-          if res.returncode == 0:
-              print(res.stdout.strip() or "Auto-merge enabled.")
-              sys.exit(0)
-
-          stderr = res.stderr.strip()
-          if "clean status" not in stderr.lower() and "protected branch rules not configured" not in stderr.lower():
-              print(f"ERROR: gh pr merge --auto failed: {stderr}", file=sys.stderr)
-              sys.exit(res.returncode)
-
-          # Fallback for repositories without required status checks:
-          # wait for all other CI check runs on HEAD_SHA to finish and succeed before merging.
-          print("Branch has no blocking rulesets; waiting for all other CI checks to pass before merging...")
-          deadline = time.monotonic() + timeout
-          # Brief initial grace period so sibling pull_request workflows register their check runs
-          time.sleep(15)
-
-          while True:
-              raw = subprocess.check_output(
-                  ["gh", "api", "--paginate", f"repos/{repo}/commits/{head_sha}/check-runs", "--jq", ".check_runs[]"],
-                  text=True,
-              )
-              runs = [json.loads(line) for line in raw.splitlines() if line.strip()]
-              # Exclude check runs belonging to this auto-merge workflow run
-              other_runs = [r for r in runs if f"/actions/runs/{run_id}" not in (r.get("details_url") or "")]
-
-              pending = [r for r in other_runs if r.get("status") != "completed"]
-              failed = [
-                  r for r in other_runs
-                  if r.get("status") == "completed"
-                  and r.get("conclusion") not in ("success", "skipped", "neutral")
-              ]
-
-              if failed:
-                  names = ", ".join(f"{r['name']} ({r['conclusion']})" for r in failed)
-                  print(f"Aborting auto-merge: failing checks detected: {names}")
-                  sys.exit(0)
-
-              if not pending:
-                  print(f"All {len(other_runs)} check(s) passed. Merging PR with --{method}...")
-                  merge_res = subprocess.run(
-                      ["gh", "pr", "merge", f"--{method}", pr_url],
-                      capture_output=True,
-                      text=True,
-                  )
-                  if merge_res.returncode != 0:
-                      print(f"ERROR: gh pr merge failed: {merge_res.stderr.strip()}", file=sys.stderr)
-                      sys.exit(merge_res.returncode)
-                  print(merge_res.stdout.strip() or "PR merged.")
-                  sys.exit(0)
-
-              if time.monotonic() >= deadline:
-                  pending_names = ", ".join(r["name"] for r in pending)
-                  print(f"Timed out waiting for checks ({pending_names}). Skipping auto-merge.")
-                  sys.exit(0)
-
-              time.sleep(15)
-          PY
+    uses: joeckr/ci-templates/.github/workflows/dependabot-auto-merge.yml@697db8faa5f8d3fa5ec15ef35674aa1e855d3a33  # v1.23.1
