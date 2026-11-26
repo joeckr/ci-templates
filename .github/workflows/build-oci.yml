@@ -36,6 +36,11 @@ on:
         required: false
         type: string
         default: 'ghcr.io'
+      attest:
+        description: 'Generate keyless SLSA build provenance attestation for pushed images'
+        required: false
+        type: boolean
+        default: true
       dry-run:
         description: 'To test if images build on PR but DO NOT push'
         required: false
@@ -52,6 +57,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout Repo
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
@@ -65,7 +72,7 @@ jobs:
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
 
       - name: Log in to Registry
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && !inputs.dry-run
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
         with:
           registry: ${{ inputs.registry }}
@@ -85,9 +92,13 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
-          REPO="${REGISTRY}/${ORG}/${IMAGE}"
+          OWNER=$(echo "$ORG" | tr '[:upper:]' '[:lower:]')
+          REPO="${REGISTRY}/${OWNER}/${IMAGE}"
           TAG_LIST="${REPO}:${VERSION},${REPO}:latest"
-          echo "tags=$TAG_LIST" >> "$GITHUB_OUTPUT"
+          {
+            echo "repo=$REPO"
+            echo "tags=$TAG_LIST"
+          } >> "$GITHUB_OUTPUT"
 
           DOCKERFILE_PATH="${CONTEXT%/}/${DOCKERFILE#./}"
           BASE_IMAGE=""
@@ -113,6 +124,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Build & Push Image
+        id: push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
           context: ${{ inputs.context }}
@@ -123,3 +135,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Attest Build Provenance
+        if: github.event_name != 'pull_request' && !inputs.dry-run && inputs.attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-name: ${{ steps.meta.outputs.repo }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true

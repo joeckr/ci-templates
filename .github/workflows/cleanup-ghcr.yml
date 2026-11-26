@@ -1,0 +1,148 @@
+name: Reusable GHCR Orphan Digest Cleanup
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: 'GHCR container package name (e.g. postgres or charts/postgres)'
+        required: true
+        type: string
+      owner:
+        description: 'GitHub user or organization owning the package'
+        required: false
+        type: string
+        default: ${{ github.repository_owner }}
+      owner-type:
+        description: 'Owner account type: user or org'
+        required: false
+        type: string
+        default: 'user'
+      keep-untagged-days:
+        description: 'Delete orphaned untagged versions older than this many days'
+        required: false
+        type: number
+        default: 14
+      dry-run:
+        description: 'Preview versions that would be deleted without deleting them'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      packages-token:
+        description: 'Token with read:packages and delete:packages scopes (defaults to GITHUB_TOKEN)'
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: Cleanup GHCR Orphan Digests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.packages-token || secrets.GITHUB_TOKEN }}
+
+      - name: Prune Orphaned Untagged Manifests
+        env:
+          PACKAGE: ${{ inputs.package }}
+          OWNER: ${{ inputs.owner }}
+          OWNER_TYPE: ${{ inputs.owner-type }}
+          KEEP_DAYS: ${{ inputs.keep-untagged-days }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          GH_TOKEN: ${{ secrets.packages-token || secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - << 'PY'
+          import datetime
+          import json
+          import os
+          import subprocess
+          import urllib.parse
+
+          pkg = os.environ["PACKAGE"]
+          owner = os.environ["OWNER"].lower()
+          owner_type = os.environ["OWNER_TYPE"].lower()
+          keep_days = int(float(os.environ["KEEP_DAYS"]))
+          dry_run = os.environ["DRY_RUN"].lower() == "true"
+
+          encoded_pkg = urllib.parse.quote(pkg, safe="")
+          if owner_type == "org":
+              base_api = f"/orgs/{owner}/packages/container/{encoded_pkg}/versions"
+          else:
+              base_api = f"/users/{owner}/packages/container/{encoded_pkg}/versions"
+
+          versions = json.loads(
+              subprocess.check_output(["gh", "api", "--paginate", base_api], text=True)
+          )
+
+          # Collect all child digests actively referenced by tagged multi-arch manifests
+          referenced = set()
+          tagged = [v for v in versions if v.get("metadata", {}).get("container", {}).get("tags")]
+          for v in tagged:
+              referenced.add(v["name"])
+              tag = v["metadata"]["container"]["tags"][0]
+              ref = f"ghcr.io/{owner}/{pkg}:{tag}"
+              res = subprocess.run(
+                  ["docker", "buildx", "imagetools", "inspect", "--raw", ref],
+                  capture_output=True,
+                  text=True,
+              )
+              if res.returncode == 0:
+                  try:
+                      manifest = json.loads(res.stdout)
+                      for m in manifest.get("manifests", []):
+                          if "digest" in m:
+                              referenced.add(m["digest"])
+                  except json.JSONDecodeError:
+                      pass
+
+          cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=keep_days)
+          deleted = []
+          skipped_active = 0
+          skipped_recent = 0
+
+          for v in versions:
+              tags = v.get("metadata", {}).get("container", {}).get("tags", [])
+              if tags:
+                  continue
+              digest = v["name"]
+              if digest in referenced:
+                  skipped_active += 1
+                  continue
+              created = datetime.datetime.fromisoformat(v["created_at"].replace("Z", "+00:00"))
+              if created >= cutoff:
+                  skipped_recent += 1
+                  continue
+
+              if dry_run:
+                  print(f"[DRY-RUN] Would delete orphaned untagged version {v['id']} ({digest}, created {v['created_at']})")
+                  deleted.append(v["id"])
+              else:
+                  del_res = subprocess.run(
+                      ["gh", "api", "-X", "DELETE", f"{base_api}/{v['id']}"],
+                      capture_output=True,
+                      text=True,
+                  )
+                  if del_res.returncode == 0:
+                      print(f"Deleted orphaned version {v['id']} ({digest})")
+                      deleted.append(v["id"])
+                  else:
+                      print(f"WARN: failed to delete {v['id']}: {del_res.stderr.strip()}")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              mode = "Dry Run" if dry_run else "Deleted"
+              with open(summary_path, "a") as sf:
+                  sf.write(f"## 🧹 GHCR Cleanup Summary (`ghcr.io/{owner}/{pkg}`)\n\n")
+                  sf.write(f"- **Tagged versions kept**: {len(tagged)}\n")
+                  sf.write(f"- **Active child digests preserved**: {skipped_active}\n")
+                  sf.write(f"- **Recent untagged digests kept (< {keep_days}d)**: {skipped_recent}\n")
+                  sf.write(f"- **Orphaned versions ({mode})**: {len(deleted)}\n")
+          PY
