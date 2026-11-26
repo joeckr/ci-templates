@@ -1,0 +1,101 @@
+name: Trivy Image Scan
+
+on:
+  workflow_call:
+    inputs:
+      image-ref:
+        description: 'Container image reference to scan (e.g. ghcr.io/joeckr/postgres:latest)'
+        required: true
+        type: string
+      registry:
+        description: 'Container registry to authenticate against'
+        required: false
+        type: string
+        default: 'ghcr.io'
+      trivy-severity:
+        description: 'Vulnerability severities to scan for'
+        required: false
+        type: string
+        default: 'CRITICAL,HIGH'
+      trivy-ignore-unfixed:
+        description: 'Ignore vulnerabilities without an available fix'
+        required: false
+        type: boolean
+        default: false
+      exit-code:
+        description: 'Exit code when vulnerabilities are found (0 for report-only, 1 to fail)'
+        required: false
+        type: string
+        default: '0'
+
+permissions:
+  contents: read
+
+jobs:
+  trivy-image:
+    name: Run Trivy Image Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - name: Log in to Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy Image Scanner (SARIF)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ inputs.image-ref }}
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: ${{ inputs.trivy-severity }}
+          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+          exit-code: '0'
+
+      - name: Upload Trivy Image SARIF Report
+        if: hashFiles('trivy-image-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934  # v4.39.5
+        with:
+          sarif_file: 'trivy-image-results.sarif'
+          category: 'trivy-image'
+
+      - name: Run Trivy Image Scanner (Table)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ inputs.image-ref }}
+          format: 'table'
+          output: 'trivy-image-table.txt'
+          severity: ${{ inputs.trivy-severity }}
+          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+          exit-code: ${{ inputs.exit-code }}
+          skip-setup-trivy: true
+
+      - name: Add Job Summary
+        if: always()
+        env:
+          IMAGE_REF: ${{ inputs.image-ref }}
+          TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
+          TRIVY_IGNORE_UNFIXED: ${{ inputs.trivy-ignore-unfixed }}
+        run: |
+          {
+            echo "## 🛡️ Trivy Image Vulnerability Scan"
+            echo "- **Image**: \`${IMAGE_REF}\`"
+            echo "- **Severities**: \`${TRIVY_SEVERITY}\`"
+            echo "- **Ignore Unfixed**: \`${TRIVY_IGNORE_UNFIXED}\`"
+            echo ""
+
+            if [ -f trivy-image-table.txt ] && [ -s trivy-image-table.txt ]; then
+              echo '```'
+              cat trivy-image-table.txt
+              echo '```'
+            else
+              echo "✅ No vulnerabilities found matching the criteria."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
