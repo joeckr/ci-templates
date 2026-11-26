@@ -113,178 +113,45 @@ jobs:
 | `dockerfile` | Path to Dockerfile relative to context | No | `'Dockerfile'` |
 | `platforms` | Target container platforms | No | `'linux/amd64,linux/arm64'` |
 | `registry` | Container registry to push to | No | `'ghcr.io'` |
+| `attest` | Generate keyless SLSA build provenance attestation for pushed images | No | `true` |
 | `dry-run` | Build images on PR or test without pushing | No | `false` |
 
 ---
 
-### `build-oci-custom.yml`
-Reusable matrix container build workflow for building and pushing custom multi-platform container images based on base images and version specifications.
-
-#### Features
-- **Dynamic Matrix from JSON**: Automatically parses a `versions.json` configuration file into a GitHub Actions build matrix.
-- **Custom Base Image & Version Mapping**: Passes `VERSION`, `IMAGE` (`base-image`), and `TAG` (`base-tag`) as build arguments into Dockerfile builds for customized multi-image pipelines.
-- **Multi-Platform Support**: Sets up QEMU and Docker Buildx to build for multiple architectures (default: `linux/amd64,linux/arm64`).
-- **Flexible Tagging**: Automatically tags images using version (`<image>:<version>`), and optionally `:latest` and `:lts` flags.
-- **Vulnerability Scanning (Trivy)**: Non-blocking security scanning on pull requests and pushes, surfacing findings in the GitHub Security tab via SARIF and in the Actions Job Summary table.
-- **SBOM Generation**: Automatically produces Software Bill of Materials (CycloneDX JSON or SPDX JSON) and uploads them as workflow artifacts per matrix version.
-- **Buildx Caching**: Leverages GitHub Actions cache (`type=gha`) for fast incremental builds.
-- **Dry-Run & PR Safety**: Skips image push on pull requests or when `dry-run: true`.
-
-#### Example `versions.json`
-```json
-[
-  {
-    "version": "1.0.0",
-    "base-image": "alpine",
-    "base-tag": "3.20",
-    "latest": true,
-    "lts": false
-  },
-  {
-    "version": "2.0.0",
-    "base-image": "alpine",
-    "base-tag": "3.21",
-    "latest": false,
-    "lts": true
-  }
-]
-```
+### `cleanup-ghcr.yml`
+Reusable workflow to prune orphaned untagged GHCR container manifests older than `keep-untagged-days` while preserving all tagged manifests and their actively referenced multi-arch child digests.
 
 #### Example Usage
-
 ```yaml
-name: Build and Push Custom Container Images
-
-on:
-  push:
-    branches: [main]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
-
 jobs:
-  build:
+  cleanup:
     permissions:
       contents: read
       packages: write
-      security-events: write
-    uses: joeckr/ci-templates/.github/workflows/build-oci-custom.yml@main
+    uses: joeckr/ci-templates/.github/workflows/cleanup-ghcr.yml@main
     with:
-      image: 'my-custom-app'
-      # Optional configurations:
-      # versions-file: 'versions.json'
-      # platforms: 'linux/amd64,linux/arm64'
-      # dockerfile: 'Dockerfile'
-      # context: '.'
-      # registry: 'ghcr.io'
-      # dry-run: false
-      # enable-trivy: true
-      # enable-sbom: true
-      # trivy-severity: 'CRITICAL,HIGH'
-      # trivy-ignore-unfixed: false
-      # sbom-format: 'cyclonedx'
+      package: 'postgres'
+      keep-untagged-days: 14
 ```
-
-#### Inputs
-| Input | Description | Required | Default |
-| --- | --- | --- | --- |
-| `image` | Name of the image to build | **Yes** | — |
-| `versions-file` | Path to `versions.json` relative to repo root | No | `'versions.json'` |
-| `org` | Name of the org or individual user | No | `${{ github.repository_owner }}` |
-| `context` | Build context path | No | `'.'` |
-| `dockerfile` | Path to Dockerfile relative to context | No | `'Dockerfile'` |
-| `platforms` | Target container platforms | No | `'linux/amd64,linux/arm64'` |
-| `registry` | Container registry to push to | No | `'ghcr.io'` |
-| `dry-run` | Build images on PR or test without pushing | No | `false` |
-| `enable-trivy` | Run Trivy vulnerability scanner | No | `true` |
-| `enable-sbom` | Generate and upload an SBOM artifact | No | `true` |
-| `trivy-severity` | Vulnerability severities to scan for (comma-separated) | No | `'CRITICAL,HIGH'` |
-| `trivy-ignore-unfixed` | Ignore vulnerabilities without an available fix | No | `false` |
-| `sbom-format` | SBOM output format (`cyclonedx` or `spdx-json`) | No | `'cyclonedx'` |
 
 ---
 
-### `build-oci-modified.yml`
-Reusable matrix container build workflow for building and pushing multi-platform container images based on upstream versions.
-
-#### Features
-- **Dynamic Matrix from JSON**: Automatically parses a `versions.json` configuration file into a GitHub Actions build matrix.
-- **Multi-Platform Support**: Sets up QEMU and Docker Buildx to build for multiple architectures (default: `linux/amd64,linux/arm64`).
-- **Flexible Tagging**: Automatically tags images using major version (`<image>:<major>`), upstream version (`<image>:<upstream>`), and optionally `:latest` and `:lts` flags.
-- **Vulnerability Scanning (Trivy)**: Non-blocking security scanning on pull requests and pushes, surfacing findings in the GitHub Security tab via SARIF and in the Actions Job Summary table.
-- **SBOM Generation**: Automatically produces Software Bill of Materials (CycloneDX JSON or SPDX JSON) and uploads them as workflow artifacts per matrix version.
-- **Buildx Caching**: Leverages GitHub Actions cache (`type=gha`) for fast incremental builds.
-- **Dry-Run & PR Safety**: Skips image push on pull requests or when `dry-run: true`.
-
-#### Example `versions.json`
-```json
-[
-  {
-    "major": "1",
-    "upstream": "1.28.3",
-    "latest": true,
-    "lts": false
-  },
-  {
-    "major": "2",
-    "upstream": "2.1.0",
-    "latest": false,
-    "lts": true
-  }
-]
-```
+### `dependabot-auto-merge.yml`
+Reusable workflow to automatically enable GitHub Auto-Merge on low-risk Dependabot pull requests (`semver-patch` and/or `github-actions` updates) once required status checks pass, leaving `minor` and `major` updates for manual review.
 
 #### Example Usage
-
 ```yaml
-name: Build and Push Container Images
-
-on:
-  push:
-    branches: [main]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
-
 jobs:
-  build:
+  auto-merge:
     permissions:
-      contents: read
-      packages: write
-      security-events: write
-    uses: joeckr/ci-templates/.github/workflows/build-oci-modified.yml@main
+      contents: write
+      pull-requests: write
+    uses: joeckr/ci-templates/.github/workflows/dependabot-auto-merge.yml@main
     with:
-      image: 'my-app'
-      # Optional configurations:
-      # versions-file: 'versions.json'
-      # platforms: 'linux/amd64,linux/arm64'
-      # dockerfile: 'Dockerfile'
-      # context: '.'
-      # registry: 'ghcr.io'
-      # dry-run: false
-      # enable-trivy: true
-      # enable-sbom: true
-      # trivy-severity: 'CRITICAL,HIGH'
-      # trivy-ignore-unfixed: false
-      # sbom-format: 'cyclonedx'
+      allow-patch: true
+      allow-ci: true
+      merge-method: 'merge'
 ```
-
-#### Inputs
-| Input | Description | Required | Default |
-| --- | --- | --- | --- |
-| `image` | Name of the image to build | **Yes** | — |
-| `versions-file` | Path to `versions.json` relative to repo root | No | `'versions.json'` |
-| `org` | Name of the org or individual user | No | `${{ github.actor }}` |
-| `context` | Build context path | No | `'.'` |
-| `dockerfile` | Path to Dockerfile relative to context | No | `'Dockerfile'` |
-| `platforms` | Target container platforms | No | `'linux/amd64,linux/arm64'` |
-| `registry` | Container registry to push to | No | `'ghcr.io'` |
-| `dry-run` | Build images on PR or test without pushing | No | `false` |
-| `enable-trivy` | Run Trivy vulnerability scanner | No | `true` |
-| `enable-sbom` | Generate and upload an SBOM artifact | No | `true` |
-| `trivy-severity` | Vulnerability severities to scan for (comma-separated) | No | `'CRITICAL,HIGH'` |
-| `trivy-ignore-unfixed` | Ignore vulnerabilities without an available fix | No | `false` |
-| `sbom-format` | SBOM output format (`cyclonedx` or `spdx-json`) | No | `'cyclonedx'` |
 
 ---
 
