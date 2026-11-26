@@ -57,20 +57,26 @@ jobs:
           OWNER_TYPE: ${{ inputs.owner-type }}
           KEEP_DAYS: ${{ inputs.keep-untagged-days }}
           DRY_RUN: ${{ inputs.dry-run }}
+          GH_ACTOR: ${{ github.actor }}
           GH_TOKEN: ${{ secrets.packages-token || secrets.GITHUB_TOKEN }}
         run: |
           python3 - << 'PY'
+          import base64
           import datetime
           import json
           import os
           import subprocess
+          import urllib.error
           import urllib.parse
+          import urllib.request
 
           pkg = os.environ["PACKAGE"]
           owner = os.environ["OWNER"].lower()
           owner_type = os.environ["OWNER_TYPE"].lower()
           keep_days = int(float(os.environ["KEEP_DAYS"]))
           dry_run = os.environ["DRY_RUN"].lower() == "true"
+          actor = os.environ["GH_ACTOR"]
+          token = os.environ["GH_TOKEN"]
 
           encoded_pkg = urllib.parse.quote(pkg, safe="")
           if owner_type == "org":
@@ -82,11 +88,47 @@ jobs:
               subprocess.check_output(["gh", "api", "--paginate", base_api], text=True)
           )
 
-          # Collect all child digests actively referenced by tagged multi-arch manifests
+          # Obtain a GHCR bearer token so we can query the OCI Referrers API
+          # (preserves keyless SLSA attestations and SBOM artifacts attached to active images)
+          ghcr_bearer = ""
+          try:
+              basic = base64.b64encode(f"{actor}:{token}".encode()).decode()
+              tok_url = f"https://ghcr.io/token?service=ghcr.io&scope=repository:{owner}/{pkg}:pull"
+              req = urllib.request.Request(tok_url, headers={"Authorization": f"Basic {basic}"})
+              with urllib.request.urlopen(req, timeout=15) as resp:
+                  ghcr_bearer = json.loads(resp.read().decode()).get("token", "")
+          except (urllib.error.URLError, json.JSONDecodeError):
+              ghcr_bearer = ""
+
+          def collect_referrers(digest):
+              found = set()
+              if not ghcr_bearer or not digest:
+                  return found
+              url = f"https://ghcr.io/v2/{owner}/{pkg}/referrers/{digest}"
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "Authorization": f"Bearer {ghcr_bearer}",
+                      "Accept": "application/vnd.oci.image.index.v1+json",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=15) as resp:
+                      idx = json.loads(resp.read().decode())
+                      for m in idx.get("manifests", []):
+                          if "digest" in m:
+                              found.add(m["digest"])
+              except (urllib.error.URLError, json.JSONDecodeError):
+                  pass
+              return found
+
+          # Collect all child digests and OCI referrers actively referenced by tagged manifests
           referenced = set()
           tagged = [v for v in versions if v.get("metadata", {}).get("container", {}).get("tags")]
           for v in tagged:
-              referenced.add(v["name"])
+              top_digest = v["name"]
+              referenced.add(top_digest)
+              referenced.update(collect_referrers(top_digest))
               tag = v["metadata"]["container"]["tags"][0]
               ref = f"ghcr.io/{owner}/{pkg}:{tag}"
               res = subprocess.run(
@@ -100,6 +142,7 @@ jobs:
                       for m in manifest.get("manifests", []):
                           if "digest" in m:
                               referenced.add(m["digest"])
+                              referenced.update(collect_referrers(m["digest"]))
                   except json.JSONDecodeError:
                       pass
 
