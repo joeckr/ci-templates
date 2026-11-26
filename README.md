@@ -116,6 +116,7 @@ jobs:
 | `platforms` | Target container platforms | No | `'linux/amd64,linux/arm64'` |
 | `registry` | Container registry to push to | No | `'ghcr.io'` |
 | `attest` | Generate keyless SLSA build provenance attestation for pushed images | No | `true` |
+| `sbom-attest` | Generate and attach a signed CycloneDX SBOM attestation for pushed images | No | `true` |
 | `dry-run` | Build images on PR or test without pushing | No | `false` |
 
 ---
@@ -587,6 +588,44 @@ jobs:
 | `additional_files` | A space separated list of additional filename to check | No | `''` |
 | `ignore_paths` | Paths to ignore when running ShellCheck | No | `''` |
 | `ignore_names` | Names to ignore when running ShellCheck | No | `''` |
+
+---
+
+### `trivy-image.yml`
+Reusable workflow to run Trivy vulnerability scans against a published container image (e.g., on a weekly schedule) and upload SARIF findings to GitHub Advanced Security.
+
+#### Example Usage
+
+```yaml
+name: Weekly Image CVE Scan
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trivy-image:
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    uses: joeckr/ci-templates/.github/workflows/trivy-image.yml@main
+    with:
+      image-ref: 'ghcr.io/joeckr/postgres:latest'
+```
+
+#### Inputs
+| Input | Description | Required | Default |
+| --- | --- | --- | --- |
+| `image-ref` | Container image reference to scan | **Yes** | — |
+| `registry` | Container registry to authenticate against | No | `'ghcr.io'` |
+| `trivy-severity` | Vulnerability severities to scan for (comma-separated) | No | `'CRITICAL,HIGH'` |
+| `trivy-ignore-unfixed` | Ignore vulnerabilities without an available fix | No | `false` |
+| `exit-code` | Exit code when vulnerabilities are found (`'0'` for report-only, `'1'` to fail) | No | `'0'` |
 
 ---
 

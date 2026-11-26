@@ -41,6 +41,11 @@ on:
         required: false
         type: boolean
         default: true
+      sbom-attest:
+        description: 'Generate and attach a signed CycloneDX SBOM attestation for pushed images'
+        required: false
+        type: boolean
+        default: true
       dry-run:
         description: 'To test if images build on PR but DO NOT push'
         required: false
@@ -142,4 +147,22 @@ jobs:
         with:
           subject-name: ${{ steps.meta.outputs.repo }}
           subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate Image SBOM (CycloneDX)
+        if: github.event_name != 'pull_request' && !inputs.dry-run && inputs.sbom-attest
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: ${{ steps.meta.outputs.repo }}@${{ steps.push.outputs.digest }}
+          format: 'cyclonedx'
+          output: 'sbom.cdx.json'
+
+      - name: Attest Image SBOM
+        if: github.event_name != 'pull_request' && !inputs.dry-run && inputs.sbom-attest
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e  # v4.1.0
+        with:
+          subject-name: ${{ steps.meta.outputs.repo }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: 'sbom.cdx.json'
           push-to-registry: true
